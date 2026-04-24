@@ -14,7 +14,6 @@ const Alerts = () => (
     <PageHeader
       title="Alerts"
       description="New regulatory information relevant to your devices. Generate a new report to incorporate these changes."
-      actions={<Button variant="outline" className="h-8 rounded-lg text-[13px]">Configure</Button>}
     />
     <div className="surface-card">
       <ul>
