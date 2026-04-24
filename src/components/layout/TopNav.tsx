@@ -9,10 +9,13 @@ const links = [
 
 const TopNav = () => {
   return (
-    <header className="sticky top-0 z-40 h-[52px] bg-card border-b" style={{ borderBottomWidth: "0.5px" }}>
+    <header className="sticky top-0 z-40 h-[64px] bg-card border-b" style={{ borderBottomWidth: "0.5px" }}>
       <div className="mx-auto h-full max-w-[1200px] px-6 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="Regosaurus" className="h-7 w-auto" />
+        <Link to="/" className="flex items-center gap-2.5 group">
+          <img src={logo} alt="Regosaurus" className="h-11 w-auto" />
+          <span className="text-[15px] tracking-tight text-foreground font-medium">
+            Regosaurus
+          </span>
         </Link>
         <nav className="flex items-center gap-1">
           {links.map((l) => (
