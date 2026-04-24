@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, FileText, ShieldAlert, Activity } from "lucide-react";
+import { ArrowUpRight, ShieldAlert, Activity } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import SeverityBadge from "@/components/SeverityBadge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,6 @@ import { alerts, profiles } from "@/lib/mockData";
 
 const stats = [
   { label: "Active devices", value: "4", icon: Activity },
-  { label: "Documents indexed", value: "49", icon: FileText },
   { label: "Open risks", value: "2", icon: ShieldAlert },
 ];
 
@@ -24,7 +23,7 @@ const Index = () => {
         }
       />
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {stats.map((s) => (
           <div key={s.label} className="surface-card p-5">
             <div className="flex items-center justify-between text-muted-foreground">
