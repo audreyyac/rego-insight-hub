@@ -188,7 +188,7 @@ const ProfileDetail = () => {
         }
       />
 
-      <div className="border-b hairline mb-6 flex gap-1">
+      <div className="mb-6 flex gap-2 p-1 rounded-lg bg-secondary w-fit">
         {[
           { k: "documents", label: "Documents" },
           { k: "reports", label: "Reports & insights" },
@@ -197,10 +197,10 @@ const ProfileDetail = () => {
             key={t.k}
             onClick={() => switchTab(t.k as Tab)}
             className={cn(
-              "px-3 py-2.5 text-[13px] -mb-px border-b-2 transition-colors",
+              "px-4 py-1.5 text-[13px] rounded-md transition-colors",
               tab === t.k
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-card"
             )}
           >
             {t.label}
