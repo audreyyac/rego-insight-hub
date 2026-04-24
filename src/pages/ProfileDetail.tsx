@@ -36,7 +36,7 @@ type ReportVersion = {
   note?: string;
 };
 
-type Tab = "documents" | "analysis" | "reports";
+type Tab = "documents" | "reports";
 
 const initialDocs: Doc[] = [
   { id: "d1", name: "Device Description v3.2.pdf", type: "Technical file", size: "2.4 MB", uploaded: "Mar 18, 2026", status: "Indexed" },
@@ -103,10 +103,10 @@ const ProfileDetail = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const profile = profiles.find((p) => p.id === id) ?? profiles[0];
 
-  const initialTab = (searchParams.get("tab") as Tab) || "documents";
-  const [tab, setTab] = useState<Tab>(
-    ["documents", "analysis", "reports"].includes(initialTab) ? initialTab : "documents"
-  );
+  const rawTab = searchParams.get("tab");
+  const initialTab: Tab =
+    rawTab === "reports" || rawTab === "analysis" ? "reports" : "documents";
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [docs, setDocs] = useState<Doc[]>(initialDocs);
   const [reports, setReports] = useState<ReportVersion[]>(initialReports);
   const [generating, setGenerating] = useState(false);
@@ -191,8 +191,7 @@ const ProfileDetail = () => {
       <div className="border-b hairline mb-6 flex gap-1">
         {[
           { k: "documents", label: "Documents" },
-          { k: "analysis", label: "Regulatory analysis" },
-          { k: "reports", label: "Reports" },
+          { k: "reports", label: "Reports & insights" },
         ].map((t) => (
           <button
             key={t.k}
@@ -280,58 +279,15 @@ const ProfileDetail = () => {
         </>
       )}
 
-      {tab === "analysis" && (
-        <div className="space-y-4">
-          <div className="surface-card p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-[14px] text-foreground">Analysis summary</h3>
-                <p className="text-[12px] text-muted-foreground mt-1">
-                  Generated from {docs.length} indexed documents. Last run 2 hours ago.
-                </p>
-              </div>
-              <Button variant="outline" className="h-8 rounded-lg text-[13px]">
-                Re-run analysis
-              </Button>
-            </div>
-            <div className="grid grid-cols-3 gap-4 mt-5">
-              <SummaryStat label="Advantages" count={2} tone="text-success" />
-              <SummaryStat label="Watch items" count={1} tone="text-warning" />
-              <SummaryStat label="Risks" count={1} tone="text-destructive" />
-            </div>
-          </div>
-
-          {analysis.map((a) => (
-            <article key={a.title} className="surface-card p-5">
-              <div className="flex items-start justify-between gap-4">
-                <h4 className="text-[14px] text-foreground leading-snug">{a.title}</h4>
-                <SeverityBadge severity={a.severity} />
-              </div>
-              <p className="text-[13px] text-muted-foreground mt-2 leading-relaxed">{a.body}</p>
-              <div className="mt-4 pt-3 border-t hairline flex flex-wrap gap-2">
-                {a.citations.map((c) => (
-                  <span
-                    key={c}
-                    className="text-[11px] text-muted-foreground bg-secondary rounded-md px-2 py-0.5"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-
       {tab === "reports" && (
         <div className="space-y-4">
           <div className="surface-card p-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-[14px] text-foreground">Reports for {profile.name}</h3>
+                <h3 className="text-[14px] text-foreground">Reports & insights for {profile.name}</h3>
                 <p className="text-[12px] text-muted-foreground mt-1">
-                  Each report is a snapshot built from the device's documents at the time of generation.
-                  Older versions are kept for traceability.
+                  Each report is a snapshot built from the device's documents at the time of
+                  generation. Key insights below reflect the latest version.
                 </p>
               </div>
               <Button
@@ -343,6 +299,61 @@ const ProfileDetail = () => {
                 {generating ? "Generating…" : "Generate new report"}
               </Button>
             </div>
+            <div className="grid grid-cols-3 gap-4 mt-5">
+              <SummaryStat
+                label="Advantages"
+                count={reports[0]?.summary.advantages ?? 0}
+                tone="text-success"
+              />
+              <SummaryStat
+                label="Watch items"
+                count={reports[0]?.summary.watch ?? 0}
+                tone="text-warning"
+              />
+              <SummaryStat
+                label="Risks"
+                count={reports[0]?.summary.risks ?? 0}
+                tone="text-destructive"
+              />
+            </div>
+          </div>
+
+          <div className="surface-card">
+            <div className="px-5 py-3 border-b hairline flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5" />
+                Key insights · tied to {reports[0]?.version ?? "latest"} ({reports[0]?.generated})
+              </div>
+              <span className="text-[11px] text-muted-foreground">
+                What you should know about this report
+              </span>
+            </div>
+            <ul>
+              {analysis.map((a, i) => (
+                <li
+                  key={a.title}
+                  className={cn("px-5 py-4", i !== 0 && "border-t hairline")}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <h4 className="text-[13px] text-foreground leading-snug">{a.title}</h4>
+                    <SeverityBadge severity={a.severity} />
+                  </div>
+                  <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">
+                    {a.body}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {a.citations.map((c) => (
+                      <span
+                        key={c}
+                        className="text-[11px] text-muted-foreground bg-secondary rounded-md px-2 py-0.5"
+                      >
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className="surface-card">
