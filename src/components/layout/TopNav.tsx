@@ -4,7 +4,7 @@ import logo from "@/assets/regosaurus-logo.png";
 const links = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/profiles", label: "My Devices" },
-  { to: "/reports", label: "Reports" },
+  { to: "/alerts", label: "Alerts" },
 ];
 
 const TopNav = () => {

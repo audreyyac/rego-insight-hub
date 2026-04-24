@@ -7,7 +7,7 @@ import AppLayout from "./components/layout/AppLayout";
 import Index from "./pages/Index";
 import Profiles from "./pages/Profiles";
 import ProfileDetail from "./pages/ProfileDetail";
-import Reports from "./pages/Reports";
+import Alerts from "./pages/Alerts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,7 +23,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/profiles" element={<Profiles />} />
             <Route path="/profiles/:id" element={<ProfileDetail />} />
-            <Route path="/reports" element={<Reports />} />
+            <Route path="/alerts" element={<Alerts />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
