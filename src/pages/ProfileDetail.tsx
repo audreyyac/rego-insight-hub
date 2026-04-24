@@ -69,7 +69,7 @@ const ProfileDetail = () => {
         to="/profiles"
         className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground mb-4"
       >
-        <ArrowLeft className="h-3 w-3" /> All profiles
+        <ArrowLeft className="h-3 w-3" /> All devices
       </Link>
 
       <PageHeader
@@ -77,7 +77,7 @@ const ProfileDetail = () => {
         description={`Class ${profile.deviceClass} · ${profile.market} · Updated ${profile.updated}`}
         actions={
           <Button variant="outline" className="h-8 rounded-lg text-[13px]">
-            Edit profile
+            Edit device
           </Button>
         }
       />
