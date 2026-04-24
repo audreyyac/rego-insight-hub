@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Search } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -12,6 +13,10 @@ const statusStyle: Record<string, string> = {
 };
 
 const Profiles = () => {
+  const [query, setQuery] = useState("");
+  const filtered = profiles.filter((p) =>
+    p.name.toLowerCase().includes(query.trim().toLowerCase())
+  );
   return (
     <>
       <PageHeader
@@ -29,6 +34,8 @@ const Profiles = () => {
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <Input
             placeholder="Search devices…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             className="h-7 border-0 shadow-none focus-visible:ring-0 px-0 text-[13px]"
           />
         </div>
@@ -42,7 +49,7 @@ const Profiles = () => {
         </div>
 
         <ul>
-          {profiles.map((p, i) => (
+          {filtered.map((p, i) => (
             <li key={p.id}>
               <Link
                 to={`/profiles/${p.id}`}
@@ -63,6 +70,11 @@ const Profiles = () => {
               </Link>
             </li>
           ))}
+          {filtered.length === 0 && (
+            <li className="px-5 py-8 text-center text-[13px] text-muted-foreground">
+              No devices match "{query}".
+            </li>
+          )}
         </ul>
       </div>
     </>
