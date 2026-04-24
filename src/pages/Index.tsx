@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { alerts, profiles } from "@/lib/mockData";
 
 const stats = [
-  { label: "Active profiles", value: "4", icon: Activity },
+  { label: "Active devices", value: "4", icon: Activity },
   { label: "Documents indexed", value: "49", icon: FileText },
   { label: "Open risks", value: "2", icon: ShieldAlert },
 ];
@@ -19,7 +19,7 @@ const Index = () => {
         description="Regulatory intelligence across your device portfolio."
         actions={
           <Button asChild className="h-8 rounded-lg text-[13px]">
-            <Link to="/profiles">New profile</Link>
+            <Link to="/profiles">New device</Link>
           </Button>
         }
       />
@@ -67,7 +67,7 @@ const Index = () => {
 
         <div className="surface-card">
           <div className="px-5 py-4 hairline border-b">
-            <h2 className="text-[14px] text-foreground">Your profiles</h2>
+            <h2 className="text-[14px] text-foreground">Your devices</h2>
           </div>
           <ul>
             {profiles.slice(0, 4).map((p, i) => (

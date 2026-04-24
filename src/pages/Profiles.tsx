@@ -15,11 +15,11 @@ const Profiles = () => {
   return (
     <>
       <PageHeader
-        title="My Profiles"
-        description="Each device profile aggregates documents and regulatory analysis."
+        title="My Devices"
+        description="Each device aggregates documents and regulatory analysis."
         actions={
           <Button className="h-8 rounded-lg text-[13px] gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> New profile
+            <Plus className="h-3.5 w-3.5" /> New device
           </Button>
         }
       />
@@ -28,7 +28,7 @@ const Profiles = () => {
         <div className="px-5 py-3 hairline border-b flex items-center gap-2">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Search profiles…"
+            placeholder="Search devices…"
             className="h-7 border-0 shadow-none focus-visible:ring-0 px-0 text-[13px]"
           />
         </div>
