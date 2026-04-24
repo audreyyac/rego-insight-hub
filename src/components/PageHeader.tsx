@@ -9,18 +9,12 @@ const PageHeader = ({
   description?: string;
   actions?: ReactNode;
 }) => (
-  <div className="flex items-start justify-between mb-8 pb-5 border-b hairline">
-    <div className="flex items-start gap-3">
-      <span
-        aria-hidden
-        className="mt-2 h-6 w-[3px] rounded-full bg-primary shrink-0"
-      />
-      <div>
-        <h1 className="text-[24px] text-foreground tracking-tight">{title}</h1>
-        {description && (
-          <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>
-        )}
-      </div>
+  <div className="flex items-start justify-between mb-8 px-5 py-4 rounded-xl bg-primary/10">
+    <div>
+      <h1 className="text-[24px] text-foreground tracking-tight">{title}</h1>
+      {description && (
+        <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>
+      )}
     </div>
     {actions && <div className="flex items-center gap-2">{actions}</div>}
   </div>
