@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import {
   supabase,
   PROFILE_DOCUMENTS_BUCKET,
+  PROFILE_REPORTS_BUCKET,
   N8N_WEBHOOK_URL,
   N8N_REPORT_WEBHOOK_URL,
 } from "@/lib/supabaseClient";
@@ -48,6 +49,14 @@ type Doc = {
   uploaded: string;
   url: string;
   path: string;
+};
+
+type Report = {
+  id: string;
+  file_name: string;
+  file_path: string;
+  created_at: string;
+  status: string;
 };
 
 type Tab = "documents" | "reports";
@@ -102,6 +111,8 @@ const ProfileDetail = () => {
   const [deleteDeviceOpen, setDeleteDeviceOpen] = useState(false);
   const [deletingDevice, setDeletingDevice] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
 
   const { user } = useAuth();
   const userId = user?.id ?? "";
@@ -169,6 +180,27 @@ const ProfileDetail = () => {
   useEffect(() => {
     loadDocs();
   }, [loadDocs]);
+
+  const loadReports = useCallback(async () => {
+    if (!id) return;
+    setReportsLoading(true);
+    const { data, error } = await supabase
+      .from("reports")
+      .select("id, file_name, file_path, created_at, status")
+      .eq("device_id", id)
+      .order("created_at", { ascending: false });
+    if (error) {
+      toast.error(`Couldn't load reports: ${error.message}`);
+      setReportsLoading(false);
+      return;
+    }
+    setReports(data ?? []);
+    setReportsLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    loadReports();
+  }, [loadReports]);
 
   const onUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -465,21 +497,6 @@ const ProfileDetail = () => {
             />
           </div>
 
-          <button
-            onClick={generateReport}
-            disabled={generatingReport}
-            className="w-full flex items-center justify-center gap-3 py-5 rounded-xl text-white font-medium text-[15px] transition-colors disabled:opacity-60"
-            style={{ background: generatingReport ? "#c2410c" : "#ea580c" }}
-            onMouseEnter={e => { if (!generatingReport) (e.currentTarget as HTMLButtonElement).style.background = "#c2410c"; }}
-            onMouseLeave={e => { if (!generatingReport) (e.currentTarget as HTMLButtonElement).style.background = "#ea580c"; }}
-          >
-            {generatingReport ? (
-              <><Loader2 className="h-5 w-5 animate-spin" /> Generating report…</>
-            ) : (
-              <><Sparkles className="h-5 w-5" /> Generate new report</>
-            )}
-          </button>
-
           <div className="surface-card">
             <div className="grid grid-cols-12 px-5 py-2.5 border-b hairline text-[11px] uppercase tracking-wider text-muted-foreground">
               <div className="col-span-6">Document</div>
@@ -536,11 +553,64 @@ const ProfileDetail = () => {
       )}
 
       {tab === "reports" && (
-        <div className="surface-card p-10 text-center">
-          <p className="text-[13px] text-foreground">No reports yet</p>
-          <p className="text-[12px] text-muted-foreground mt-1">
-            Reports generated for this device will appear here.
-          </p>
+        <div className="space-y-4">
+          <button
+            onClick={generateReport}
+            disabled={generatingReport}
+            className="w-full flex items-center justify-center gap-3 py-5 rounded-xl text-white font-medium text-[15px] transition-colors disabled:opacity-60"
+            style={{ background: generatingReport ? "#92400e" : "#b45309" }}
+            onMouseEnter={e => { if (!generatingReport) (e.currentTarget as HTMLButtonElement).style.background = "#92400e"; }}
+            onMouseLeave={e => { if (!generatingReport) (e.currentTarget as HTMLButtonElement).style.background = "#b45309"; }}
+          >
+            {generatingReport ? (
+              <><Loader2 className="h-5 w-5 animate-spin" /> Generating report…</>
+            ) : (
+              <><Sparkles className="h-5 w-5" /> Generate new report</>
+            )}
+          </button>
+
+          <div className="surface-card">
+            <div className="px-5 py-3 border-b hairline text-[11px] uppercase tracking-wider text-muted-foreground">
+              Report history
+            </div>
+            {reportsLoading ? (
+              <div className="px-5 py-10 flex items-center justify-center text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            ) : reports.length === 0 ? (
+              <div className="px-5 py-10 text-center text-[13px] text-muted-foreground">
+                No reports yet. Click "Generate new report" to create one.
+              </div>
+            ) : (
+              <ul>
+                {reports.map((r, i) => (
+                  <li
+                    key={r.id}
+                    className={cn("grid grid-cols-12 px-5 py-3.5 items-center", i !== 0 && "border-t hairline")}
+                  >
+                    <div className="col-span-7 flex items-center gap-3 min-w-0">
+                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-[13px] text-foreground truncate">{r.file_name}</span>
+                    </div>
+                    <div className="col-span-3 text-[12px] text-muted-foreground">{formatDate(r.created_at)}</div>
+                    <div className="col-span-2 flex items-center justify-end">
+                      <button
+                        onClick={async () => {
+                          const { data } = await supabase.storage
+                            .from(PROFILE_REPORTS_BUCKET)
+                            .createSignedUrl(r.file_path, 3600);
+                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                        }}
+                        className="text-[12px] text-primary hover:underline"
+                      >
+                        Download
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
