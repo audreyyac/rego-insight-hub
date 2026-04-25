@@ -95,7 +95,7 @@ const Profiles = () => {
     <>
       <PageHeader
         title="My Devices"
-        description="Each device aggregates documents and regulatory analysis."
+        description="Select a device to view."
         actions={
           <Button
             onClick={() => setOpen(true)}

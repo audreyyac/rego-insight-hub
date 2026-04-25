@@ -206,7 +206,7 @@ const Index = () => {
             </div>
             <div>
               <p className="text-[13px] font-medium text-foreground group-hover:text-primary transition-colors">New device</p>
-              <p className="text-[12px] text-muted-foreground mt-0.5">Register a new medical device.</p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">Create a new medical device profile.</p>
             </div>
           </button>
           <button
@@ -218,7 +218,7 @@ const Index = () => {
             </div>
             <div>
               <p className="text-[13px] font-medium text-foreground group-hover:text-primary transition-colors">Upload document</p>
-              <p className="text-[12px] text-muted-foreground mt-0.5">Add a PDF to trigger analysis.</p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">Add a PDF to the device profile.</p>
             </div>
           </button>
         </div>

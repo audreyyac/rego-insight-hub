@@ -421,7 +421,7 @@ const ProfileDetail = () => {
                 <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
                 <p className="text-[13px] text-foreground">Drop a PDF or click to upload</p>
                 <p className="text-[12px] text-muted-foreground mt-1">
-                  Single PDF only. Sent to the processing webhook.
+                  Single PDF only. Upload at least one device document to generate a report.
                 </p>
               </>
             )}
