@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Upload,
   FileText,
-  CheckCircle2,
   Loader2,
   Trash2,
   Pencil,
