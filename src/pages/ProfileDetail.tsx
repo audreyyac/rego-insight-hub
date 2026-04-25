@@ -189,21 +189,35 @@ const ProfileDetail = () => {
   }, [loadDocs]);
 
   const loadReports = useCallback(async () => {
-    if (!id) return;
+    if (!id || !userId) return;
     setReportsLoading(true);
-    const { data, error } = await supabase
-      .from("reports")
-      .select("id, file_name, file_path, file_size, created_at, status")
-      .eq("device_id", id)
-      .order("created_at", { ascending: false });
+    const folder = `${userId}/${id}`;
+    const { data, error } = await supabase.storage
+      .from(PROFILE_REPORTS_BUCKET)
+      .list(folder, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
     if (error) {
       toast.error(`Couldn't load reports: ${error.message}`);
       setReportsLoading(false);
       return;
     }
-    setReports(data ?? []);
+    const items: Report[] = (data ?? [])
+      .filter((f) => f.name && f.name !== ".emptyFolderPlaceholder")
+      .map((f) => {
+        const path = `${folder}/${f.name}`;
+        return {
+          id: f.id ?? path,
+          file_name: displayName(f.name),
+          file_path: path,
+          file_size: (f.metadata as any)?.size ?? null,
+          created_at: f.created_at ?? (f as any).updated_at ?? "",
+          status: "complete",
+          progress: null,
+          message: null,
+        };
+      });
+    setReports(items);
     setReportsLoading(false);
-  }, [id]);
+  }, [id, userId]);
 
   useEffect(() => {
     loadReports();
@@ -272,7 +286,7 @@ const ProfileDetail = () => {
     const label = `Report — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
     const { data: job, error: jobErr } = await supabase
       .from("reports")
-      .insert({ device_id: profile.id, user_id: currentUser.id, file_name: label, file_path: "", status: "processing", progress: 0, message: "Starting…" })
+      .insert({ device_id: profile.id, user_id: currentUser.id, file_name: label, file_path: "", status: "processing" })
       .select()
       .single();
     if (jobErr) { toast.error(jobErr.message); return; }
