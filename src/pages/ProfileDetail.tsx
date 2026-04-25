@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import {
   supabase,
   PROFILE_DOCUMENTS_BUCKET,
+  N8N_WEBHOOK_URL,
 } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -188,6 +189,23 @@ const ProfileDetail = () => {
           upsert: false,
         });
       if (upErr) throw upErr;
+
+      const { data: pub } = supabase.storage
+        .from(PROFILE_DOCUMENTS_BUCKET)
+        .getPublicUrl(path);
+
+      await fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          file_url: pub.publicUrl,
+          file_name: file.name,
+          file_path: path,
+          product_name: profile.product_name,
+          device_id: profile.id,
+          user_id: userId,
+        }),
+      });
 
       toast.success(`${file.name} uploaded`);
       setTab("documents");
