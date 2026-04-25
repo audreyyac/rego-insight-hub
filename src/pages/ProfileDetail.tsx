@@ -1,4 +1,4 @@
-import { useParams, Link, useSearchParams } from "react-router-dom";
+import { useParams, Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   ArrowLeft,
@@ -83,6 +83,7 @@ const folderFor = (productName: string) =>
 
 const ProfileDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [profile, setProfile] = useState<{ id: string; product_name: string } | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -94,6 +95,8 @@ const ProfileDetail = () => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Doc | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteDeviceOpen, setDeleteDeviceOpen] = useState(false);
+  const [deletingDevice, setDeletingDevice] = useState(false);
 
   const rawTab = searchParams.get("tab");
   const initialTab: Tab = rawTab === "reports" ? "reports" : "documents";
@@ -268,6 +271,37 @@ const ProfileDetail = () => {
     await loadDocs();
   };
 
+  const confirmDeleteDevice = async () => {
+    if (!profile) return;
+    setDeletingDevice(true);
+    try {
+      const folder = folderFor(profile.product_name);
+      const { data: existing, error: listErr } = await supabase.storage
+        .from(PROFILE_DOCUMENTS_BUCKET)
+        .list(folder, { limit: 1000 });
+      if (listErr) throw listErr;
+      const paths = (existing ?? [])
+        .filter((f) => f.name)
+        .map((f) => `${folder}/${f.name}`);
+      if (paths.length > 0) {
+        const { error: rmErr } = await supabase.storage
+          .from(PROFILE_DOCUMENTS_BUCKET)
+          .remove(paths);
+        if (rmErr) throw rmErr;
+      }
+      const { error: delErr } = await supabase
+        .from("client_profiles")
+        .delete()
+        .eq("id", profile.id);
+      if (delErr) throw delErr;
+      toast.success(`${profile.product_name} deleted`);
+      navigate("/profiles");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Couldn't delete device");
+      setDeletingDevice(false);
+    }
+  };
+
   if (profileLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -299,13 +333,22 @@ const ProfileDetail = () => {
         title={profile.product_name}
         description="Device documents and regulatory reports"
         actions={
-          <Button
-            variant="outline"
-            className="h-8 rounded-lg text-[13px] gap-1.5"
-            onClick={openEdit}
-          >
-            <Pencil className="h-3.5 w-3.5" /> Edit device
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="h-8 rounded-lg text-[13px] gap-1.5"
+              onClick={openEdit}
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit device
+            </Button>
+            <Button
+              variant="outline"
+              className="h-8 rounded-lg text-[13px] gap-1.5 text-destructive hover:text-destructive"
+              onClick={() => setDeleteDeviceOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete device
+            </Button>
+          </div>
         }
       />
 
@@ -505,6 +548,40 @@ const ProfileDetail = () => {
                 </>
               ) : (
                 "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteDeviceOpen}
+        onOpenChange={(o) => !o && !deletingDevice && setDeleteDeviceOpen(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete device?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {profile.product_name} and all of its uploaded documents will be
+              permanently removed. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingDevice}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteDevice();
+              }}
+              disabled={deletingDevice}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingDevice ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Deleting…
+                </>
+              ) : (
+                "Delete device"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
