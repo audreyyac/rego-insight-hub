@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, Loader2 } from "lucide-react";
+import { Plus, Search, Loader2, ChevronRight } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,11 +108,6 @@ const Profiles = () => {
           />
         </div>
 
-        <div className="grid grid-cols-12 px-5 py-2.5 border-b hairline text-[11px] uppercase tracking-wider text-muted-foreground">
-          <div className="col-span-9">Device</div>
-          <div className="col-span-3 text-right">Created</div>
-        </div>
-
         {loading ? (
           <div className="px-5 py-10 flex items-center justify-center text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -123,16 +118,24 @@ const Profiles = () => {
               <li key={d.id}>
                 <Link
                   to={`/profiles/${d.id}`}
-                  className={`grid grid-cols-12 px-5 py-3.5 items-center hover:bg-secondary/50 transition-colors ${
+                  className={`flex items-center px-5 py-4 gap-4 hover:bg-secondary/60 active:bg-secondary transition-colors group ${
                     i !== 0 ? "border-t hairline" : ""
                   }`}
                 >
-                  <div className="col-span-9">
-                    <p className="text-[13px] text-foreground">{d.product_name}</p>
+                  <div className="h-8 w-8 rounded-lg bg-secondary group-hover:bg-primary/10 flex items-center justify-center shrink-0 transition-colors">
+                    <span className="text-[11px] font-semibold text-muted-foreground group-hover:text-primary transition-colors">
+                      {d.product_name.slice(0, 2).toUpperCase()}
+                    </span>
                   </div>
-                  <div className="col-span-3 text-right text-[12px] text-muted-foreground">
-                    {formatRelative(d.date_created)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-foreground group-hover:text-primary transition-colors">
+                      {d.product_name}
+                    </p>
+                    <p className="text-[12px] text-muted-foreground mt-0.5">
+                      Created {formatRelative(d.date_created)}
+                    </p>
                   </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                 </Link>
               </li>
             ))}
