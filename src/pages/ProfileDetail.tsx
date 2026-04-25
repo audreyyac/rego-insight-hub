@@ -333,22 +333,13 @@ const ProfileDetail = () => {
         title={profile.product_name}
         description="Device documents and regulatory reports"
         actions={
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="h-8 rounded-lg text-[13px] gap-1.5"
-              onClick={openEdit}
-            >
-              <Pencil className="h-3.5 w-3.5" /> Edit device
-            </Button>
-            <Button
-              variant="outline"
-              className="h-8 rounded-lg text-[13px] gap-1.5 text-destructive hover:text-destructive"
-              onClick={() => setDeleteDeviceOpen(true)}
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Delete device
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            className="h-8 rounded-lg text-[13px] gap-1.5"
+            onClick={openEdit}
+          >
+            <Pencil className="h-3.5 w-3.5" /> Edit device
+          </Button>
         }
       />
 
