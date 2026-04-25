@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import {
   supabase,
   PROFILE_DOCUMENTS_BUCKET,
-  N8N_WEBHOOK_URL,
 } from "@/lib/supabaseClient";
 
 type Doc = {
@@ -52,6 +51,14 @@ const formatDate = (iso: string | undefined) => {
 const displayName = (storedName: string) =>
   storedName.replace(/^\d+-/, "");
 
+// Turn the device name into a safe storage folder segment.
+const folderFor = (productName: string) =>
+  productName
+    .trim()
+    .replace(/[^\w\-. ]+/g, "_")
+    .replace(/\s+/g, "_")
+    .slice(0, 100) || "device";
+
 const ProfileDetail = () => {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -87,11 +94,15 @@ const ProfileDetail = () => {
   }, [id]);
 
   const loadDocs = useCallback(async () => {
-    if (!id) return;
+    if (!id || !profile) return;
+    const folder = folderFor(profile.product_name);
     setDocsLoading(true);
     const { data, error } = await supabase.storage
       .from(PROFILE_DOCUMENTS_BUCKET)
-      .list(id, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+      .list(folder, {
+        limit: 100,
+        sortBy: { column: "created_at", order: "desc" },
+      });
     if (error) {
       toast.error(`Couldn't load documents: ${error.message}`);
       setDocsLoading(false);
@@ -100,7 +111,7 @@ const ProfileDetail = () => {
     const items: Doc[] = (data ?? [])
       .filter((f) => f.name && f.name !== ".emptyFolderPlaceholder")
       .map((f) => {
-        const path = `${id}/${f.name}`;
+        const path = `${folder}/${f.name}`;
         const { data: pub } = supabase.storage
           .from(PROFILE_DOCUMENTS_BUCKET)
           .getPublicUrl(path);
@@ -114,7 +125,7 @@ const ProfileDetail = () => {
       });
     setDocs(items);
     setDocsLoading(false);
-  }, [id]);
+  }, [id, profile]);
 
   useEffect(() => {
     loadDocs();
@@ -133,16 +144,15 @@ const ProfileDetail = () => {
     }
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file, file.name);
-      formData.append("product_name", profile.product_name);
-      formData.append("document_name", file.name);
-
-      const res = await fetch(N8N_WEBHOOK_URL, {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+      const folder = folderFor(profile.product_name);
+      const path = `${folder}/${Date.now()}-${file.name}`;
+      const { error: upErr } = await supabase.storage
+        .from(PROFILE_DOCUMENTS_BUCKET)
+        .upload(path, file, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+      if (upErr) throw upErr;
 
       toast.success(`${file.name} uploaded`);
       setTab("documents");
