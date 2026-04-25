@@ -4,11 +4,32 @@ import {
   ArrowLeft,
   Upload,
   FileText,
-  CheckCircle2,
   Loader2,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -22,6 +43,7 @@ type Doc = {
   size: string;
   uploaded: string;
   url: string;
+  path: string;
 };
 
 type Tab = "documents" | "reports";
@@ -67,6 +89,11 @@ const ProfileDetail = () => {
   const [uploading, setUploading] = useState(false);
   const [docs, setDocs] = useState<Doc[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Doc | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const rawTab = searchParams.get("tab");
   const initialTab: Tab = rawTab === "reports" ? "reports" : "documents";
@@ -121,6 +148,7 @@ const ProfileDetail = () => {
           size: formatSize((f.metadata as any)?.size ?? 0),
           uploaded: formatDate(f.created_at ?? (f as any).updated_at),
           url: pub.publicUrl,
+          path,
         };
       });
     setDocs(items);
@@ -171,6 +199,75 @@ const ProfileDetail = () => {
     setSearchParams({ tab: t }, { replace: true });
   };
 
+  const openEdit = () => {
+    if (!profile) return;
+    setEditName(profile.product_name);
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!profile) return;
+    const newName = editName.trim();
+    if (!newName) {
+      toast.error("Device name can't be empty");
+      return;
+    }
+    if (newName === profile.product_name) {
+      setEditOpen(false);
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const oldFolder = folderFor(profile.product_name);
+      const newFolder = folderFor(newName);
+
+      // Move existing files in storage if folder changes.
+      if (oldFolder !== newFolder) {
+        const { data: existing, error: listErr } = await supabase.storage
+          .from(PROFILE_DOCUMENTS_BUCKET)
+          .list(oldFolder, { limit: 1000 });
+        if (listErr) throw listErr;
+        for (const f of existing ?? []) {
+          if (!f.name || f.name === ".emptyFolderPlaceholder") continue;
+          const { error: mvErr } = await supabase.storage
+            .from(PROFILE_DOCUMENTS_BUCKET)
+            .move(`${oldFolder}/${f.name}`, `${newFolder}/${f.name}`);
+          if (mvErr) throw mvErr;
+        }
+      }
+
+      const { error: updErr } = await supabase
+        .from("client_profiles")
+        .update({ product_name: newName })
+        .eq("id", profile.id);
+      if (updErr) throw updErr;
+
+      setProfile({ ...profile, product_name: newName });
+      toast.success("Device updated");
+      setEditOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Couldn't update device");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase.storage
+      .from(PROFILE_DOCUMENTS_BUCKET)
+      .remove([deleteTarget.path]);
+    setDeleting(false);
+    if (error) {
+      toast.error(`Couldn't delete: ${error.message}`);
+      return;
+    }
+    toast.success(`${deleteTarget.name} deleted`);
+    setDeleteTarget(null);
+    await loadDocs();
+  };
+
   if (profileLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -202,8 +299,12 @@ const ProfileDetail = () => {
         title={profile.product_name}
         description="Device documents and regulatory reports"
         actions={
-          <Button variant="outline" className="h-8 rounded-lg text-[13px]">
-            Edit device
+          <Button
+            variant="outline"
+            className="h-8 rounded-lg text-[13px] gap-1.5"
+            onClick={openEdit}
+          >
+            <Pencil className="h-3.5 w-3.5" /> Edit device
           </Button>
         }
       />
@@ -278,7 +379,7 @@ const ProfileDetail = () => {
               <div className="col-span-6">Document</div>
               <div className="col-span-2">Size</div>
               <div className="col-span-3">Uploaded</div>
-              <div className="col-span-1 text-right">Status</div>
+              <div className="col-span-1 text-right">Actions</div>
             </div>
             {docsLoading ? (
               <div className="px-5 py-10 flex items-center justify-center text-muted-foreground">
@@ -312,9 +413,13 @@ const ProfileDetail = () => {
                     <div className="col-span-2 text-[12px] text-muted-foreground">{d.size}</div>
                     <div className="col-span-3 text-[12px] text-muted-foreground">{d.uploaded}</div>
                     <div className="col-span-1 flex items-center justify-end">
-                      <span className="inline-flex items-center gap-1 text-[12px] text-success">
-                        <CheckCircle2 className="h-3 w-3" /> Uploaded
-                      </span>
+                      <button
+                        onClick={() => setDeleteTarget(d)}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        aria-label={`Delete ${d.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -332,6 +437,79 @@ const ProfileDetail = () => {
           </p>
         </div>
       )}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit device</DialogTitle>
+            <DialogDescription>
+              Renaming the device also renames its document folder.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit-device-name" className="text-[12px]">
+              Device name
+            </Label>
+            <Input
+              id="edit-device-name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !savingEdit && editName.trim()) saveEdit();
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={savingEdit}>
+              Cancel
+            </Button>
+            <Button onClick={saveEdit} disabled={savingEdit || !editName.trim()}>
+              {savingEdit ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Saving…
+                </>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && !deleting && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.name} will be permanently removed from storage. This
+              can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Deleting…
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
