@@ -57,6 +57,8 @@ type Report = {
   file_path: string;
   created_at: string;
   status: string;
+  progress: number | null;
+  message: string | null;
 };
 
 type Tab = "documents" | "reports";
@@ -111,6 +113,9 @@ const ProfileDetail = () => {
   const [deleteDeviceOpen, setDeleteDeviceOpen] = useState(false);
   const [deletingDevice, setDeletingDevice] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState(0);
+  const [jobMessage, setJobMessage] = useState("");
   const [reports, setReports] = useState<Report[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
 
@@ -259,27 +264,48 @@ const ProfileDetail = () => {
       toast.error("Report webhook not configured yet");
       return;
     }
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) { toast.error("Not signed in"); return; }
+
+    const label = `Report — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+    const { data: job, error: jobErr } = await supabase
+      .from("reports")
+      .insert({ device_id: profile.id, user_id: currentUser.id, file_name: label, file_path: "", status: "processing", progress: 0, message: "Starting…" })
+      .select()
+      .single();
+    if (jobErr) { toast.error(jobErr.message); return; }
+
+    setActiveJobId(job.id);
+    setJobProgress(0);
+    setJobMessage("Starting…");
     setGeneratingReport(true);
-    try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      const res = await fetch(N8N_REPORT_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          device_id: profile.id,
-          product_name: profile.product_name,
-          user_id: currentUser?.id,
-        }),
-      });
-      if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
-      toast.success("Report generation started");
-      switchTab("reports");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to start report generation");
-    } finally {
-      setGeneratingReport(false);
-    }
+    switchTab("reports");
+
+    fetch(N8N_REPORT_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_id: job.id, device_id: profile.id, product_name: profile.product_name, user_id: currentUser.id }),
+    }).catch(console.error);
   };
+
+  useEffect(() => {
+    if (!activeJobId) return;
+    const channel = supabase
+      .channel(`report-${activeJobId}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "reports", filter: `id=eq.${activeJobId}` }, (payload) => {
+        const r = payload.new as Report;
+        setJobProgress(r.progress ?? 0);
+        setJobMessage(r.message ?? "");
+        if (r.status === "complete" || r.status === "error") {
+          setGeneratingReport(false);
+          setActiveJobId(null);
+          r.status === "complete" ? toast.success("Report ready") : toast.error("Report generation failed");
+          loadReports();
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeJobId, loadReports]);
 
   const switchTab = (t: Tab) => {
     setTab(t);
@@ -558,9 +584,9 @@ const ProfileDetail = () => {
             onClick={generateReport}
             disabled={generatingReport}
             className="w-full flex items-center justify-center gap-3 py-5 rounded-xl text-white font-medium text-[15px] transition-colors disabled:opacity-60"
-            style={{ background: generatingReport ? "#92400e" : "#b45309" }}
-            onMouseEnter={e => { if (!generatingReport) (e.currentTarget as HTMLButtonElement).style.background = "#92400e"; }}
-            onMouseLeave={e => { if (!generatingReport) (e.currentTarget as HTMLButtonElement).style.background = "#b45309"; }}
+            style={{ background: "#FF9100" }}
+            onMouseEnter={e => { if (!generatingReport) (e.currentTarget as HTMLButtonElement).style.background = "#e68200"; }}
+            onMouseLeave={e => { if (!generatingReport) (e.currentTarget as HTMLButtonElement).style.background = "#FF9100"; }}
           >
             {generatingReport ? (
               <><Loader2 className="h-5 w-5 animate-spin" /> Generating report…</>
@@ -568,6 +594,27 @@ const ProfileDetail = () => {
               <><Sparkles className="h-5 w-5" /> Generate new report</>
             )}
           </button>
+
+          {generatingReport && (
+            <div className="surface-card p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 text-[13px] text-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  Generating report
+                </div>
+                <span className="text-[13px] font-medium" style={{ color: "#FF9100" }}>{jobProgress}%</span>
+              </div>
+              <div className="w-full bg-secondary rounded-full h-2">
+                <div
+                  className="h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${jobProgress}%`, background: "#FF9100" }}
+                />
+              </div>
+              {jobMessage && (
+                <p className="text-[12px] text-muted-foreground mt-2">{jobMessage}</p>
+              )}
+            </div>
+          )}
 
           <div className="surface-card">
             <div className="px-5 py-3 border-b hairline text-[11px] uppercase tracking-wider text-muted-foreground">
