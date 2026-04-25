@@ -74,9 +74,10 @@ const Profiles = () => {
     const name = newName.trim();
     if (!name) return;
     setCreating(true);
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("client_profiles")
-      .insert({ product_name: name })
+      .insert({ product_name: name, user_id: user?.id })
       .select()
       .single();
     setCreating(false);
