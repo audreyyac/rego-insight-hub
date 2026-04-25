@@ -495,6 +495,17 @@ const ProfileDetail = () => {
             />
           </div>
           <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditOpen(false);
+                setDeleteDeviceOpen(true);
+              }}
+              disabled={savingEdit}
+              className="text-destructive hover:text-destructive gap-1.5 mr-auto"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete device
+            </Button>
             <Button variant="outline" onClick={() => setEditOpen(false)} disabled={savingEdit}>
               Cancel
             </Button>
