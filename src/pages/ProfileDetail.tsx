@@ -126,41 +126,25 @@ const ProfileDetail = () => {
       toast.error("Device not loaded yet");
       return;
     }
+    const file = files[0];
+    if (file.type && file.type !== "application/pdf") {
+      toast.error("Only PDF files are allowed");
+      return;
+    }
     setUploading(true);
-    const fileArr = Array.from(files);
-    const file_urls: string[] = [];
-    const file_names: string[] = [];
     try {
-      for (const f of fileArr) {
-        const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const path = `${profile.id}/${Date.now()}-${safeName}`;
-        const { error: upErr } = await supabase.storage
-          .from(PROFILE_DOCUMENTS_BUCKET)
-          .upload(path, f, { upsert: false, contentType: f.type || undefined });
-        if (upErr) throw new Error(`Upload failed for ${f.name}: ${upErr.message}`);
-        const { data: pub } = supabase.storage
-          .from(PROFILE_DOCUMENTS_BUCKET)
-          .getPublicUrl(path);
-        file_urls.push(pub.publicUrl);
-        file_names.push(f.name);
-      }
+      const formData = new FormData();
+      formData.append("file", file, file.name);
+      formData.append("product_name", profile.product_name);
+      formData.append("document_name", file.name);
 
       const res = await fetch(N8N_WEBHOOK_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: "",
-          device_name: profile.product_name,
-          product_code: "",
-          cfr_number: "",
-          description: "",
-          file_urls,
-          file_names,
-        }),
+        body: formData,
       });
       if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
 
-      toast.success(`${fileArr.length} document${fileArr.length > 1 ? "s" : ""} uploaded`);
+      toast.success(`${file.name} uploaded`);
       setTab("documents");
       setSearchParams({ tab: "documents" }, { replace: true });
       await loadDocs();
@@ -263,16 +247,16 @@ const ProfileDetail = () => {
             ) : (
               <>
                 <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
-                <p className="text-[13px] text-foreground">Drop files or click to upload</p>
+                <p className="text-[13px] text-foreground">Drop a PDF or click to upload</p>
                 <p className="text-[12px] text-muted-foreground mt-1">
-                  PDF, DOCX up to 25 MB. Files are stored against this device.
+                  Single PDF only. Sent to the processing webhook.
                 </p>
               </>
             )}
             <input
               ref={fileRef}
               type="file"
-              multiple
+              accept="application/pdf"
               disabled={uploading}
               className="hidden"
               onChange={(e) => onUpload(e.target.files)}
