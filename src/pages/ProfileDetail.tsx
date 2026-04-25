@@ -589,15 +589,16 @@ const ProfileDetail = () => {
                     <div className="col-span-2 text-[12px] text-muted-foreground">{d.size}</div>
                     <div className="col-span-3 text-[12px] text-muted-foreground">{d.uploaded}</div>
                     <div className="col-span-2 flex items-center justify-end gap-1">
-                      <a
-                        href={d.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={async () => {
+                          const { data } = await supabase.storage.from(PROFILE_DOCUMENTS_BUCKET).createSignedUrl(d.path, 3600);
+                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                        }}
                         className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                         aria-label={`Download ${d.name}`}
                       >
                         <Download className="h-3.5 w-3.5" />
-                      </a>
+                      </button>
                       <button
                         onClick={() => setDeleteTarget(d)}
                         className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -690,15 +691,16 @@ const ProfileDetail = () => {
                     </div>
                     <div className="col-span-3 text-[12px] text-muted-foreground">{formatDate(r.created_at)}</div>
                     <div className="col-span-2 flex items-center justify-end">
-                      <a
-                        href={r.public_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={async () => {
+                          const { data } = await supabase.storage.from(PROFILE_REPORTS_BUCKET).createSignedUrl(r.file_path, 3600);
+                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                        }}
                         className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                         aria-label="Download report"
                       >
                         <Download className="h-3.5 w-3.5" />
-                      </a>
+                      </button>
                     </div>
                   </li>
                 ))}
