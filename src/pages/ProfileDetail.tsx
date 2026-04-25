@@ -247,9 +247,9 @@ const ProfileDetail = () => {
             ) : (
               <>
                 <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
-                <p className="text-[13px] text-foreground">Drop files or click to upload</p>
+                <p className="text-[13px] text-foreground">Drop a PDF or click to upload</p>
                 <p className="text-[12px] text-muted-foreground mt-1">
-                  PDF, DOCX up to 25 MB. Files are stored against this device.
+                  Single PDF only. Sent to the processing webhook.
                 </p>
               </>
             )}
