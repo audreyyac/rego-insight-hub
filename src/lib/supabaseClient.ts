@@ -6,4 +6,4 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "eyJhbGciOiJ
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export const PROFILE_DOCUMENTS_BUCKET = "profile-documents";
-export const N8N_WEBHOOK_URL = "https://marylee-unconsiderable-ocie.ngrok-free.dev/webhook/e684a79f-23d3-419c-8d0f-c8abcec6aa94";
+export const N8N_WEBHOOK_URL = "https://marylee-unconsiderable-ocie.ngrok-free.dev/webhook-test/e684a79f-23d3-419c-8d0f-c8abcec6aa94";
