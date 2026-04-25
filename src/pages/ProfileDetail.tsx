@@ -135,6 +135,7 @@ const ProfileDetail = () => {
     try {
       const formData = new FormData();
       formData.append("file", file, file.name);
+      formData.append("device_id", profile.id);
       formData.append("product_name", profile.product_name);
       formData.append("document_name", file.name);
 
