@@ -1,4 +1,4 @@
-import { useParams, Link, useSearchParams } from "react-router-dom";
+import { useParams, Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   ArrowLeft,
@@ -83,6 +83,7 @@ const folderFor = (productName: string) =>
 
 const ProfileDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [profile, setProfile] = useState<{ id: string; product_name: string } | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -94,6 +95,8 @@ const ProfileDetail = () => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Doc | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteDeviceOpen, setDeleteDeviceOpen] = useState(false);
+  const [deletingDevice, setDeletingDevice] = useState(false);
 
   const rawTab = searchParams.get("tab");
   const initialTab: Tab = rawTab === "reports" ? "reports" : "documents";
@@ -266,6 +269,37 @@ const ProfileDetail = () => {
     toast.success(`${deleteTarget.name} deleted`);
     setDeleteTarget(null);
     await loadDocs();
+  };
+
+  const confirmDeleteDevice = async () => {
+    if (!profile) return;
+    setDeletingDevice(true);
+    try {
+      const folder = folderFor(profile.product_name);
+      const { data: existing, error: listErr } = await supabase.storage
+        .from(PROFILE_DOCUMENTS_BUCKET)
+        .list(folder, { limit: 1000 });
+      if (listErr) throw listErr;
+      const paths = (existing ?? [])
+        .filter((f) => f.name)
+        .map((f) => `${folder}/${f.name}`);
+      if (paths.length > 0) {
+        const { error: rmErr } = await supabase.storage
+          .from(PROFILE_DOCUMENTS_BUCKET)
+          .remove(paths);
+        if (rmErr) throw rmErr;
+      }
+      const { error: delErr } = await supabase
+        .from("client_profiles")
+        .delete()
+        .eq("id", profile.id);
+      if (delErr) throw delErr;
+      toast.success(`${profile.product_name} deleted`);
+      navigate("/profiles");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Couldn't delete device");
+      setDeletingDevice(false);
+    }
   };
 
   if (profileLoading) {
