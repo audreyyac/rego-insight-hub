@@ -77,9 +77,12 @@ const Index = () => {
     const device = uploadDevices.find((d) => d.id === selectedDeviceId);
     if (!device) return;
 
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) { toast.error("Not signed in"); return; }
+
     setUploading(true);
     try {
-      const folder = `${userId}/${folderFor(device.product_name)}`;
+      const folder = `${currentUser.id}/${folderFor(device.product_name)}`;
       const path = `${folder}/${Date.now()}-${uploadFile.name}`;
 
       const { error: upErr } = await supabase.storage
@@ -100,7 +103,7 @@ const Index = () => {
           file_path: path,
           product_name: device.product_name,
           device_id: device.id,
-          user_id: userId,
+          user_id: currentUser.id,
         }),
       });
 
