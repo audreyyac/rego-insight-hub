@@ -324,8 +324,12 @@ const ProfileDetail = () => {
   useEffect(() => {
     if (!generatingReport) return;
     const interval = setInterval(() => {
-      setJobProgress(prev => prev < 90 ? prev + 2 : prev);
-    }, 3000);
+      setJobProgress(prev => {
+        if (prev >= 80) return prev;      // hold at 80% waiting for Gemini
+        if (prev >= 60) return prev + 1;  // slow from 60–80%
+        return prev + 3;                  // fast from 0–60%
+      });
+    }, 2500);
     return () => clearInterval(interval);
   }, [generatingReport]);
 
