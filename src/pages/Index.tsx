@@ -1,33 +1,41 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, FileText, Activity } from "lucide-react";
+import { ArrowUpRight, FileText, Activity, Loader2 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import SeverityBadge from "@/components/SeverityBadge";
 import { Button } from "@/components/ui/button";
-import { alerts, profiles } from "@/lib/mockData";
+import { alerts } from "@/lib/mockData";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-const totalReports = profiles.reduce((sum, p) => sum + p.documents, 0);
+type Device = {
+  id: string;
+  product_name: string;
+  date_created: string | null;
+};
 
 const Index = () => {
-  const [activeDevices, setActiveDevices] = useState<number | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from("client_profiles")
-        .select("*", { count: "exact", head: true });
-      if (!error) setActiveDevices(count ?? 0);
+        .select("id, product_name, date_created")
+        .order("date_created", { ascending: false })
+        .limit(4);
+      if (!error) setDevices(data ?? []);
+      setDevicesLoading(false);
     })();
   }, []);
 
   const stats = [
     {
       label: "Active devices",
-      value: activeDevices === null ? "—" : String(activeDevices),
+      value: devicesLoading ? "—" : String(devices.length),
       icon: Activity,
     },
-    { label: "Reports generated", value: String(totalReports), icon: FileText },
+    { label: "Reports generated", value: "—", icon: FileText },
   ];
 
   return (
@@ -84,23 +92,36 @@ const Index = () => {
         </div>
 
         <div className="surface-card">
-          <div className="px-5 py-4 hairline border-b">
+          <div className="flex items-center justify-between px-5 py-4 hairline border-b">
             <h2 className="text-[14px] text-foreground">Your devices</h2>
+            <Link to="/profiles" className="text-[12px] text-primary hover:underline inline-flex items-center gap-1">
+              View all <ArrowUpRight className="h-3 w-3" />
+            </Link>
           </div>
-          <ul>
-            {profiles.slice(0, 4).map((p, i) => (
-              <li key={p.id} className={`px-5 py-3 ${i !== 0 ? "border-t hairline" : ""}`}>
-                <Link to={`/profiles/${p.id}`} className="block group">
-                  <p className="text-[13px] text-foreground group-hover:text-primary transition-colors">
-                    {p.name}
-                  </p>
-                  <p className="text-[12px] text-muted-foreground mt-0.5">
-                    Class {p.deviceClass} · {p.market}
-                  </p>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {devicesLoading ? (
+            <div className="px-5 py-10 flex items-center justify-center text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </div>
+          ) : devices.length === 0 ? (
+            <div className="px-5 py-8 text-center text-[13px] text-muted-foreground">
+              No devices yet.{" "}
+              <Link to="/profiles" className="text-primary hover:underline">
+                Add one
+              </Link>
+            </div>
+          ) : (
+            <ul>
+              {devices.map((d, i) => (
+                <li key={d.id} className={`px-5 py-3 ${i !== 0 ? "border-t hairline" : ""}`}>
+                  <Link to={`/profiles/${d.id}`} className="block group">
+                    <p className="text-[13px] text-foreground group-hover:text-primary transition-colors">
+                      {d.product_name}
+                    </p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
     </>
