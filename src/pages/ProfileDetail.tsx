@@ -627,8 +627,11 @@ const ProfileDetail = () => {
           )}
 
           <div className="surface-card">
-            <div className="px-5 py-3 border-b hairline text-[11px] uppercase tracking-wider text-muted-foreground">
-              Report history
+            <div className="grid grid-cols-12 px-5 py-2.5 border-b hairline text-[11px] uppercase tracking-wider text-muted-foreground">
+              <div className="col-span-5">Report</div>
+              <div className="col-span-2">Size</div>
+              <div className="col-span-3">Created</div>
+              <div className="col-span-2 text-right">Actions</div>
             </div>
             {reportsLoading ? (
               <div className="px-5 py-10 flex items-center justify-center text-muted-foreground">
