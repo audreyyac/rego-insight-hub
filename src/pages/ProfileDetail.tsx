@@ -56,6 +56,7 @@ type Report = {
   id: string;
   file_name: string;
   file_path: string;
+  public_url?: string;
   file_size: number | null;
   created_at: string;
   status: string;
@@ -204,10 +205,17 @@ const ProfileDetail = () => {
       .filter((f) => f.name && f.name !== ".emptyFolderPlaceholder")
       .map((f) => {
         const path = `${folder}/${f.name}`;
+        const tsMatch = f.name.match(/^(\d+)-/);
+        const ts = tsMatch ? parseInt(tsMatch[1], 10) : 0;
+        const label = ts
+          ? `Report — ${new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}`
+          : displayName(f.name);
+        const { data: pub } = supabase.storage.from(PROFILE_REPORTS_BUCKET).getPublicUrl(path);
         return {
           id: f.id ?? path,
-          file_name: displayName(f.name),
+          file_name: label,
           file_path: path,
+          public_url: pub.publicUrl,
           file_size: (f.metadata as any)?.size ?? null,
           created_at: f.created_at ?? (f as any).updated_at ?? "",
           status: "complete",
@@ -682,18 +690,15 @@ const ProfileDetail = () => {
                     </div>
                     <div className="col-span-3 text-[12px] text-muted-foreground">{formatDate(r.created_at)}</div>
                     <div className="col-span-2 flex items-center justify-end">
-                      <button
-                        onClick={async () => {
-                          const { data } = await supabase.storage
-                            .from(PROFILE_REPORTS_BUCKET)
-                            .createSignedUrl(r.file_path, 3600);
-                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                        }}
+                      <a
+                        href={r.public_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                         aria-label="Download report"
                       >
                         <Download className="h-3.5 w-3.5" />
-                      </button>
+                      </a>
                     </div>
                   </li>
                 ))}
