@@ -1,5 +1,7 @@
 import { NavLink, Link } from "react-router-dom";
+import { LogOut } from "lucide-react";
 import logo from "@/assets/regosaurus-logo.png";
+import { useAuth } from "@/contexts/AuthContext";
 
 const links = [
   { to: "/", label: "Dashboard", end: true },
@@ -8,6 +10,9 @@ const links = [
 ];
 
 const TopNav = () => {
+  const { user, signOut } = useAuth();
+  const initials = user?.email?.slice(0, 2).toUpperCase() ?? "??";
+
   return (
     <header className="sticky top-0 z-40 h-[64px] bg-card border-b" style={{ borderBottomWidth: "0.5px" }}>
       <div className="mx-auto h-full max-w-[1200px] px-6 flex items-center justify-between">
@@ -36,12 +41,17 @@ const TopNav = () => {
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          <button className="text-[13px] text-muted-foreground hover:text-foreground transition-colors">
-            Help
-          </button>
+          <span className="text-[12px] text-muted-foreground hidden sm:block">{user?.email}</span>
           <div className="h-7 w-7 rounded-full bg-secondary flex items-center justify-center text-[12px] font-medium text-foreground">
-            AK
+            {initials}
           </div>
+          <button
+            onClick={signOut}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+            aria-label="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </header>

@@ -36,6 +36,7 @@ import {
   supabase,
   PROFILE_DOCUMENTS_BUCKET,
 } from "@/lib/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Doc = {
   id: string;
@@ -98,6 +99,9 @@ const ProfileDetail = () => {
   const [deleteDeviceOpen, setDeleteDeviceOpen] = useState(false);
   const [deletingDevice, setDeletingDevice] = useState(false);
 
+  const { user } = useAuth();
+  const userId = user?.id ?? "";
+
   const rawTab = searchParams.get("tab");
   const initialTab: Tab = rawTab === "reports" ? "reports" : "documents";
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -124,8 +128,8 @@ const ProfileDetail = () => {
   }, [id]);
 
   const loadDocs = useCallback(async () => {
-    if (!id || !profile) return;
-    const folder = folderFor(profile.product_name);
+    if (!id || !profile || !userId) return;
+    const folder = `${userId}/${folderFor(profile.product_name)}`;
     setDocsLoading(true);
     const { data, error } = await supabase.storage
       .from(PROFILE_DOCUMENTS_BUCKET)
@@ -156,7 +160,7 @@ const ProfileDetail = () => {
       });
     setDocs(items);
     setDocsLoading(false);
-  }, [id, profile]);
+  }, [id, profile, userId]);
 
   useEffect(() => {
     loadDocs();
@@ -175,7 +179,7 @@ const ProfileDetail = () => {
     }
     setUploading(true);
     try {
-      const folder = folderFor(profile.product_name);
+      const folder = `${userId}/${folderFor(profile.product_name)}`;
       const path = `${folder}/${Date.now()}-${file.name}`;
       const { error: upErr } = await supabase.storage
         .from(PROFILE_DOCUMENTS_BUCKET)
@@ -221,8 +225,8 @@ const ProfileDetail = () => {
     }
     setSavingEdit(true);
     try {
-      const oldFolder = folderFor(profile.product_name);
-      const newFolder = folderFor(newName);
+      const oldFolder = `${userId}/${folderFor(profile.product_name)}`;
+      const newFolder = `${userId}/${folderFor(newName)}`;
 
       // Move existing files in storage if folder changes.
       if (oldFolder !== newFolder) {
@@ -275,25 +279,30 @@ const ProfileDetail = () => {
     if (!profile) return;
     setDeletingDevice(true);
     try {
-      const folder = folderFor(profile.product_name);
+      const folder = `${userId}/${folderFor(profile.product_name)}`;
+
       const { data: existing, error: listErr } = await supabase.storage
         .from(PROFILE_DOCUMENTS_BUCKET)
         .list(folder, { limit: 1000 });
-      if (listErr) throw listErr;
+      if (listErr) throw new Error(`Storage list failed: ${listErr.message}`);
+
       const paths = (existing ?? [])
         .filter((f) => f.name)
         .map((f) => `${folder}/${f.name}`);
+
       if (paths.length > 0) {
         const { error: rmErr } = await supabase.storage
           .from(PROFILE_DOCUMENTS_BUCKET)
           .remove(paths);
-        if (rmErr) throw rmErr;
+        if (rmErr) throw new Error(`Storage remove failed: ${rmErr.message}`);
       }
+
       const { error: delErr } = await supabase
         .from("client_profiles")
         .delete()
         .eq("id", profile.id);
-      if (delErr) throw delErr;
+      if (delErr) throw new Error(`DB delete failed: ${delErr.message}`);
+
       toast.success(`${profile.product_name} deleted`);
       navigate("/profiles");
     } catch (err: any) {
