@@ -7,6 +7,7 @@ import {
   Loader2,
   Trash2,
   Pencil,
+  Sparkles,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import {
   supabase,
   PROFILE_DOCUMENTS_BUCKET,
   N8N_WEBHOOK_URL,
+  N8N_REPORT_WEBHOOK_URL,
 } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -99,6 +101,7 @@ const ProfileDetail = () => {
   const [deleting, setDeleting] = useState(false);
   const [deleteDeviceOpen, setDeleteDeviceOpen] = useState(false);
   const [deletingDevice, setDeletingDevice] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   const { user } = useAuth();
   const userId = user?.id ?? "";
@@ -216,6 +219,33 @@ const ProfileDetail = () => {
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const generateReport = async () => {
+    if (!profile || !N8N_REPORT_WEBHOOK_URL) {
+      toast.error("Report webhook not configured yet");
+      return;
+    }
+    setGeneratingReport(true);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const res = await fetch(N8N_REPORT_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          device_id: profile.id,
+          product_name: profile.product_name,
+          user_id: currentUser?.id,
+        }),
+      });
+      if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+      toast.success("Report generation started");
+      switchTab("reports");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to start report generation");
+    } finally {
+      setGeneratingReport(false);
     }
   };
 
@@ -434,6 +464,21 @@ const ProfileDetail = () => {
               onChange={(e) => onUpload(e.target.files)}
             />
           </div>
+
+          <button
+            onClick={generateReport}
+            disabled={generatingReport}
+            className="w-full flex items-center justify-center gap-3 py-5 rounded-xl text-white font-medium text-[15px] transition-colors disabled:opacity-60"
+            style={{ background: generatingReport ? "#c2410c" : "#ea580c" }}
+            onMouseEnter={e => { if (!generatingReport) (e.currentTarget as HTMLButtonElement).style.background = "#c2410c"; }}
+            onMouseLeave={e => { if (!generatingReport) (e.currentTarget as HTMLButtonElement).style.background = "#ea580c"; }}
+          >
+            {generatingReport ? (
+              <><Loader2 className="h-5 w-5 animate-spin" /> Generating report…</>
+            ) : (
+              <><Sparkles className="h-5 w-5" /> Generate new report</>
+            )}
+          </button>
 
           <div className="surface-card">
             <div className="grid grid-cols-12 px-5 py-2.5 border-b hairline text-[11px] uppercase tracking-wider text-muted-foreground">
