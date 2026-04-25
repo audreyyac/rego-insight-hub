@@ -1,20 +1,40 @@
-import { useParams, Link, useSearchParams } from "react-router-dom";
+import { useParams, Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   ArrowLeft,
   Upload,
   FileText,
-  CheckCircle2,
   Loader2,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   supabase,
   PROFILE_DOCUMENTS_BUCKET,
-  N8N_WEBHOOK_URL,
 } from "@/lib/supabaseClient";
 
 type Doc = {
@@ -23,6 +43,7 @@ type Doc = {
   size: string;
   uploaded: string;
   url: string;
+  path: string;
 };
 
 type Tab = "documents" | "reports";
@@ -52,14 +73,30 @@ const formatDate = (iso: string | undefined) => {
 const displayName = (storedName: string) =>
   storedName.replace(/^\d+-/, "");
 
+// Turn the device name into a safe storage folder segment.
+const folderFor = (productName: string) =>
+  productName
+    .trim()
+    .replace(/[^\w\-. ]+/g, "_")
+    .replace(/\s+/g, "_")
+    .slice(0, 100) || "device";
+
 const ProfileDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [profile, setProfile] = useState<{ id: string; product_name: string } | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [docs, setDocs] = useState<Doc[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Doc | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteDeviceOpen, setDeleteDeviceOpen] = useState(false);
+  const [deletingDevice, setDeletingDevice] = useState(false);
 
   const rawTab = searchParams.get("tab");
   const initialTab: Tab = rawTab === "reports" ? "reports" : "documents";
@@ -87,11 +124,15 @@ const ProfileDetail = () => {
   }, [id]);
 
   const loadDocs = useCallback(async () => {
-    if (!id) return;
+    if (!id || !profile) return;
+    const folder = folderFor(profile.product_name);
     setDocsLoading(true);
     const { data, error } = await supabase.storage
       .from(PROFILE_DOCUMENTS_BUCKET)
-      .list(id, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+      .list(folder, {
+        limit: 100,
+        sortBy: { column: "created_at", order: "desc" },
+      });
     if (error) {
       toast.error(`Couldn't load documents: ${error.message}`);
       setDocsLoading(false);
@@ -100,7 +141,7 @@ const ProfileDetail = () => {
     const items: Doc[] = (data ?? [])
       .filter((f) => f.name && f.name !== ".emptyFolderPlaceholder")
       .map((f) => {
-        const path = `${id}/${f.name}`;
+        const path = `${folder}/${f.name}`;
         const { data: pub } = supabase.storage
           .from(PROFILE_DOCUMENTS_BUCKET)
           .getPublicUrl(path);
@@ -110,11 +151,12 @@ const ProfileDetail = () => {
           size: formatSize((f.metadata as any)?.size ?? 0),
           uploaded: formatDate(f.created_at ?? (f as any).updated_at),
           url: pub.publicUrl,
+          path,
         };
       });
     setDocs(items);
     setDocsLoading(false);
-  }, [id]);
+  }, [id, profile]);
 
   useEffect(() => {
     loadDocs();
@@ -133,17 +175,15 @@ const ProfileDetail = () => {
     }
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file, file.name);
-      formData.append("device_id", profile.id);
-      formData.append("product_name", profile.product_name);
-      formData.append("document_name", file.name);
-
-      const res = await fetch(N8N_WEBHOOK_URL, {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+      const folder = folderFor(profile.product_name);
+      const path = `${folder}/${Date.now()}-${file.name}`;
+      const { error: upErr } = await supabase.storage
+        .from(PROFILE_DOCUMENTS_BUCKET)
+        .upload(path, file, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+      if (upErr) throw upErr;
 
       toast.success(`${file.name} uploaded`);
       setTab("documents");
@@ -160,6 +200,106 @@ const ProfileDetail = () => {
   const switchTab = (t: Tab) => {
     setTab(t);
     setSearchParams({ tab: t }, { replace: true });
+  };
+
+  const openEdit = () => {
+    if (!profile) return;
+    setEditName(profile.product_name);
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!profile) return;
+    const newName = editName.trim();
+    if (!newName) {
+      toast.error("Device name can't be empty");
+      return;
+    }
+    if (newName === profile.product_name) {
+      setEditOpen(false);
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const oldFolder = folderFor(profile.product_name);
+      const newFolder = folderFor(newName);
+
+      // Move existing files in storage if folder changes.
+      if (oldFolder !== newFolder) {
+        const { data: existing, error: listErr } = await supabase.storage
+          .from(PROFILE_DOCUMENTS_BUCKET)
+          .list(oldFolder, { limit: 1000 });
+        if (listErr) throw listErr;
+        for (const f of existing ?? []) {
+          if (!f.name || f.name === ".emptyFolderPlaceholder") continue;
+          const { error: mvErr } = await supabase.storage
+            .from(PROFILE_DOCUMENTS_BUCKET)
+            .move(`${oldFolder}/${f.name}`, `${newFolder}/${f.name}`);
+          if (mvErr) throw mvErr;
+        }
+      }
+
+      const { error: updErr } = await supabase
+        .from("client_profiles")
+        .update({ product_name: newName })
+        .eq("id", profile.id);
+      if (updErr) throw updErr;
+
+      setProfile({ ...profile, product_name: newName });
+      toast.success("Device updated");
+      setEditOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Couldn't update device");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase.storage
+      .from(PROFILE_DOCUMENTS_BUCKET)
+      .remove([deleteTarget.path]);
+    setDeleting(false);
+    if (error) {
+      toast.error(`Couldn't delete: ${error.message}`);
+      return;
+    }
+    toast.success(`${deleteTarget.name} deleted`);
+    setDeleteTarget(null);
+    await loadDocs();
+  };
+
+  const confirmDeleteDevice = async () => {
+    if (!profile) return;
+    setDeletingDevice(true);
+    try {
+      const folder = folderFor(profile.product_name);
+      const { data: existing, error: listErr } = await supabase.storage
+        .from(PROFILE_DOCUMENTS_BUCKET)
+        .list(folder, { limit: 1000 });
+      if (listErr) throw listErr;
+      const paths = (existing ?? [])
+        .filter((f) => f.name)
+        .map((f) => `${folder}/${f.name}`);
+      if (paths.length > 0) {
+        const { error: rmErr } = await supabase.storage
+          .from(PROFILE_DOCUMENTS_BUCKET)
+          .remove(paths);
+        if (rmErr) throw rmErr;
+      }
+      const { error: delErr } = await supabase
+        .from("client_profiles")
+        .delete()
+        .eq("id", profile.id);
+      if (delErr) throw delErr;
+      toast.success(`${profile.product_name} deleted`);
+      navigate("/profiles");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Couldn't delete device");
+      setDeletingDevice(false);
+    }
   };
 
   if (profileLoading) {
@@ -193,8 +333,12 @@ const ProfileDetail = () => {
         title={profile.product_name}
         description="Device documents and regulatory reports"
         actions={
-          <Button variant="outline" className="h-8 rounded-lg text-[13px]">
-            Edit device
+          <Button
+            variant="outline"
+            className="h-8 rounded-lg text-[13px] gap-1.5"
+            onClick={openEdit}
+          >
+            <Pencil className="h-3.5 w-3.5" /> Edit device
           </Button>
         }
       />
@@ -269,7 +413,7 @@ const ProfileDetail = () => {
               <div className="col-span-6">Document</div>
               <div className="col-span-2">Size</div>
               <div className="col-span-3">Uploaded</div>
-              <div className="col-span-1 text-right">Status</div>
+              <div className="col-span-1 text-right">Actions</div>
             </div>
             {docsLoading ? (
               <div className="px-5 py-10 flex items-center justify-center text-muted-foreground">
@@ -303,9 +447,13 @@ const ProfileDetail = () => {
                     <div className="col-span-2 text-[12px] text-muted-foreground">{d.size}</div>
                     <div className="col-span-3 text-[12px] text-muted-foreground">{d.uploaded}</div>
                     <div className="col-span-1 flex items-center justify-end">
-                      <span className="inline-flex items-center gap-1 text-[12px] text-success">
-                        <CheckCircle2 className="h-3 w-3" /> Uploaded
-                      </span>
+                      <button
+                        onClick={() => setDeleteTarget(d)}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        aria-label={`Delete ${d.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -323,6 +471,124 @@ const ProfileDetail = () => {
           </p>
         </div>
       )}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit device</DialogTitle>
+            <DialogDescription>
+              Renaming the device also renames its document folder.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit-device-name" className="text-[12px]">
+              Device name
+            </Label>
+            <Input
+              id="edit-device-name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !savingEdit && editName.trim()) saveEdit();
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditOpen(false);
+                setDeleteDeviceOpen(true);
+              }}
+              disabled={savingEdit}
+              className="text-destructive hover:text-destructive gap-1.5 mr-auto"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete device
+            </Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={savingEdit}>
+              Cancel
+            </Button>
+            <Button onClick={saveEdit} disabled={savingEdit || !editName.trim()}>
+              {savingEdit ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Saving…
+                </>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && !deleting && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.name} will be permanently removed from storage. This
+              can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Deleting…
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteDeviceOpen}
+        onOpenChange={(o) => !o && !deletingDevice && setDeleteDeviceOpen(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete device?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {profile.product_name} and all of its uploaded documents will be
+              permanently removed. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingDevice}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteDevice();
+              }}
+              disabled={deletingDevice}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingDevice ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Deleting…
+                </>
+              ) : (
+                "Delete device"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
