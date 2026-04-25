@@ -10,13 +10,18 @@ import {
   Sparkles,
   Download,
   Clock,
+  Loader2,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import SeverityBadge from "@/components/SeverityBadge";
 import { Button } from "@/components/ui/button";
-import { profiles } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  supabase,
+  PROFILE_DOCUMENTS_BUCKET,
+  N8N_WEBHOOK_URL,
+} from "@/lib/supabaseClient";
 
 type Doc = {
   id: string;
@@ -101,7 +106,29 @@ const initialReports: ReportVersion[] = [
 const ProfileDetail = () => {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const profile = profiles.find((p) => p.id === id) ?? profiles[0];
+  const [profile, setProfile] = useState<{ id: string; product_name: string } | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      setProfileLoading(true);
+      const { data, error } = await supabase
+        .from("client_profiles")
+        .select("id, product_name")
+        .eq("id", id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) toast.error(`Couldn't load device: ${error.message}`);
+      setProfile(data as any);
+      setProfileLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const rawTab = searchParams.get("tab");
   const initialTab: Tab =
@@ -112,18 +139,63 @@ const ProfileDetail = () => {
   const [generating, setGenerating] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const onUpload = (files: FileList | null) => {
-    if (!files) return;
-    const next: Doc[] = Array.from(files).map((f, i) => ({
-      id: `new-${Date.now()}-${i}`,
-      name: f.name,
-      type: "Uploaded",
-      size: `${Math.max(1, Math.round(f.size / 1024))} KB`,
-      uploaded: "Just now",
-      status: "Processing",
-    }));
-    setDocs((d) => [...next, ...d]);
-    toast.success(`${next.length} document${next.length > 1 ? "s" : ""} added`);
+  const onUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    if (!profile) {
+      toast.error("Device not loaded yet");
+      return;
+    }
+    setUploading(true);
+    const fileArr = Array.from(files);
+    const file_urls: string[] = [];
+    const file_names: string[] = [];
+    try {
+      for (const f of fileArr) {
+        const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `${profile.id}/${Date.now()}-${safeName}`;
+        const { error: upErr } = await supabase.storage
+          .from(PROFILE_DOCUMENTS_BUCKET)
+          .upload(path, f, { upsert: false, contentType: f.type || undefined });
+        if (upErr) throw new Error(`Upload failed for ${f.name}: ${upErr.message}`);
+        const { data: pub } = supabase.storage
+          .from(PROFILE_DOCUMENTS_BUCKET)
+          .getPublicUrl(path);
+        file_urls.push(pub.publicUrl);
+        file_names.push(f.name);
+      }
+
+      const res = await fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: "",
+          device_name: profile.product_name,
+          product_code: "",
+          cfr_number: "",
+          description: "",
+          file_urls,
+          file_names,
+        }),
+      });
+      if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+
+      const next: Doc[] = fileArr.map((f, i) => ({
+        id: `new-${Date.now()}-${i}`,
+        name: f.name,
+        type: "Uploaded",
+        size: `${Math.max(1, Math.round(f.size / 1024))} KB`,
+        uploaded: "Just now",
+        status: "Indexed",
+      }));
+      setDocs((d) => [...next, ...d]);
+      toast.success(`${next.length} document${next.length > 1 ? "s" : ""} uploaded`);
+      setSearchParams({ tab: "documents" }, { replace: true });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Something went wrong during upload");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
   const generateReport = () => {
@@ -169,6 +241,24 @@ const ProfileDetail = () => {
     setSearchParams({ tab: t }, { replace: true });
   };
 
+  if (profileLoading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
+  if (!profile) {
+    return (
+      <div className="py-10 text-center text-[13px] text-muted-foreground">
+        Device not found.{" "}
+        <Link to="/profiles" className="text-primary underline">
+          Back to devices
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <>
       <Link
@@ -179,8 +269,8 @@ const ProfileDetail = () => {
       </Link>
 
       <PageHeader
-        title={profile.name}
-        description={`Class ${profile.deviceClass} · ${profile.market} · Updated ${profile.updated}`}
+        title={profile.product_name}
+        description="Device documents and regulatory reports"
         actions={
           <Button variant="outline" className="h-8 rounded-lg text-[13px]">
             Edit device
@@ -211,24 +301,43 @@ const ProfileDetail = () => {
       {tab === "documents" && (
         <>
           <div
-            className="surface-card border-dashed p-8 text-center mb-4 cursor-pointer hover:bg-secondary/30 transition-colors"
+            className={cn(
+              "surface-card border-dashed p-8 text-center mb-4 transition-colors",
+              uploading
+                ? "opacity-70 cursor-wait"
+                : "cursor-pointer hover:bg-secondary/30"
+            )}
             style={{ borderStyle: "dashed", borderWidth: "1px" }}
-            onClick={() => fileRef.current?.click()}
+            onClick={() => !uploading && fileRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
+              if (uploading) return;
               onUpload(e.dataTransfer.files);
             }}
           >
-            <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
-            <p className="text-[13px] text-foreground">Drop files or click to upload</p>
-            <p className="text-[12px] text-muted-foreground mt-1">
-              PDF, DOCX up to 25 MB. New documents update the device profile and unlock a fresh report.
-            </p>
+            {uploading ? (
+              <>
+                <Loader2 className="h-5 w-5 text-muted-foreground mx-auto mb-2 animate-spin" />
+                <p className="text-[13px] text-foreground">Uploading and analyzing…</p>
+                <p className="text-[12px] text-muted-foreground mt-1">
+                  Please keep this page open.
+                </p>
+              </>
+            ) : (
+              <>
+                <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
+                <p className="text-[13px] text-foreground">Drop files or click to upload</p>
+                <p className="text-[12px] text-muted-foreground mt-1">
+                  PDF, DOCX up to 25 MB. New documents update the device profile and unlock a fresh report.
+                </p>
+              </>
+            )}
             <input
               ref={fileRef}
               type="file"
               multiple
+              disabled={uploading}
               className="hidden"
               onChange={(e) => onUpload(e.target.files)}
             />
@@ -284,7 +393,7 @@ const ProfileDetail = () => {
           <div className="surface-card p-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-[14px] text-foreground">Reports & insights for {profile.name}</h3>
+                <h3 className="text-[14px] text-foreground">Reports & insights for {profile.product_name}</h3>
                 <p className="text-[12px] text-muted-foreground mt-1">
                   Each report is a snapshot built from the device's documents at the time of
                   generation. Key insights below reflect the latest version.
@@ -376,7 +485,7 @@ const ProfileDetail = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-[13px] text-foreground">
-                        {profile.name} regulatory report
+                        {profile.product_name} regulatory report
                       </p>
                       <span className="text-[11px] text-muted-foreground bg-secondary rounded-md px-1.5 py-0.5">
                         {r.version}
