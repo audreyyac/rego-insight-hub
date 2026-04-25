@@ -8,6 +8,7 @@ import {
   Trash2,
   Pencil,
   Sparkles,
+  Download,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ type Report = {
   id: string;
   file_name: string;
   file_path: string;
+  file_size: number | null;
   created_at: string;
   status: string;
   progress: number | null;
@@ -191,7 +193,7 @@ const ProfileDetail = () => {
     setReportsLoading(true);
     const { data, error } = await supabase
       .from("reports")
-      .select("id, file_name, file_path, created_at, status")
+      .select("id, file_name, file_path, file_size, created_at, status")
       .eq("device_id", id)
       .order("created_at", { ascending: false });
     if (error) {
@@ -294,11 +296,9 @@ const ProfileDetail = () => {
       .channel(`report-${activeJobId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "reports", filter: `id=eq.${activeJobId}` }, (payload) => {
         const r = payload.new as Report;
-        setJobProgress(r.progress ?? 0);
-        setJobMessage(r.message ?? "");
         if (r.status === "complete" || r.status === "error") {
-          setGeneratingReport(false);
-          setActiveJobId(null);
+          if (r.status === "complete") setJobProgress(100);
+          setTimeout(() => { setGeneratingReport(false); setActiveJobId(null); }, 800);
           r.status === "complete" ? toast.success("Report ready") : toast.error("Report generation failed");
           loadReports();
         }
@@ -306,6 +306,14 @@ const ProfileDetail = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [activeJobId, loadReports]);
+
+  useEffect(() => {
+    if (!generatingReport) return;
+    const interval = setInterval(() => {
+      setJobProgress(prev => prev < 90 ? prev + 2 : prev);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [generatingReport]);
 
   const switchTab = (t: Tab) => {
     setTab(t);
@@ -525,10 +533,10 @@ const ProfileDetail = () => {
 
           <div className="surface-card">
             <div className="grid grid-cols-12 px-5 py-2.5 border-b hairline text-[11px] uppercase tracking-wider text-muted-foreground">
-              <div className="col-span-6">Document</div>
+              <div className="col-span-5">Document</div>
               <div className="col-span-2">Size</div>
               <div className="col-span-3">Uploaded</div>
-              <div className="col-span-1 text-right">Actions</div>
+              <div className="col-span-2 text-right">Actions</div>
             </div>
             {docsLoading ? (
               <div className="px-5 py-10 flex items-center justify-center text-muted-foreground">
@@ -548,20 +556,22 @@ const ProfileDetail = () => {
                       i !== 0 && "border-t hairline"
                     )}
                   >
-                    <div className="col-span-6 flex items-center gap-3 min-w-0">
+                    <div className="col-span-5 flex items-center gap-3 min-w-0">
                       <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-[13px] text-foreground truncate">{d.name}</span>
+                    </div>
+                    <div className="col-span-2 text-[12px] text-muted-foreground">{d.size}</div>
+                    <div className="col-span-3 text-[12px] text-muted-foreground">{d.uploaded}</div>
+                    <div className="col-span-2 flex items-center justify-end gap-1">
                       <a
                         href={d.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[13px] text-foreground truncate hover:underline"
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        aria-label={`Download ${d.name}`}
                       >
-                        {d.name}
+                        <Download className="h-3.5 w-3.5" />
                       </a>
-                    </div>
-                    <div className="col-span-2 text-[12px] text-muted-foreground">{d.size}</div>
-                    <div className="col-span-3 text-[12px] text-muted-foreground">{d.uploaded}</div>
-                    <div className="col-span-1 flex items-center justify-end">
                       <button
                         onClick={() => setDeleteTarget(d)}
                         className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -635,9 +645,19 @@ const ProfileDetail = () => {
                     key={r.id}
                     className={cn("grid grid-cols-12 px-5 py-3.5 items-center", i !== 0 && "border-t hairline")}
                   >
-                    <div className="col-span-7 flex items-center gap-3 min-w-0">
+                    <div className="col-span-5 flex items-center gap-3 min-w-0">
                       <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="text-[13px] text-foreground truncate">{r.file_name}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[13px] text-foreground truncate">{r.file_name}</span>
+                        {i === 0 && (
+                          <span className="shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-md" style={{ color: "#FF9100", background: "rgba(255,145,0,0.1)" }}>
+                            Latest
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="col-span-2 text-[12px] text-muted-foreground">
+                      {r.file_size ? formatSize(r.file_size) : "—"}
                     </div>
                     <div className="col-span-3 text-[12px] text-muted-foreground">{formatDate(r.created_at)}</div>
                     <div className="col-span-2 flex items-center justify-end">
@@ -648,9 +668,10 @@ const ProfileDetail = () => {
                             .createSignedUrl(r.file_path, 3600);
                           if (data?.signedUrl) window.open(data.signedUrl, "_blank");
                         }}
-                        className="text-[12px] text-primary hover:underline"
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        aria-label="Download report"
                       >
-                        Download
+                        <Download className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </li>
