@@ -4,15 +4,32 @@ import PageHeader from "@/components/PageHeader";
 import SeverityBadge from "@/components/SeverityBadge";
 import { Button } from "@/components/ui/button";
 import { alerts, profiles } from "@/lib/mockData";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 const totalReports = profiles.reduce((sum, p) => sum + p.documents, 0);
 
-const stats = [
-  { label: "Active devices", value: String(profiles.length), icon: Activity },
-  { label: "Reports generated", value: String(totalReports), icon: FileText },
-];
-
 const Index = () => {
+  const [activeDevices, setActiveDevices] = useState<number | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { count, error } = await supabase
+        .from("client_profiles")
+        .select("*", { count: "exact", head: true });
+      if (!error) setActiveDevices(count ?? 0);
+    })();
+  }, []);
+
+  const stats = [
+    {
+      label: "Active devices",
+      value: activeDevices === null ? "—" : String(activeDevices),
+      icon: Activity,
+    },
+    { label: "Reports generated", value: String(totalReports), icon: FileText },
+  ];
+
   return (
     <>
       <PageHeader
