@@ -136,15 +136,7 @@ const Index = () => {
 
   return (
     <div className="space-y-8">
-      <div className="relative overflow-hidden rounded-2xl surface-card px-6 py-7">
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-60 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(600px 200px at 0% 0%, hsl(var(--primary) / 0.10), transparent 60%), radial-gradient(500px 180px at 100% 100%, hsl(var(--primary) / 0.07), transparent 65%)",
-          }}
-        />
+      <div className="relative overflow-hidden rounded-2xl bg-card border border-border shadow-sm px-6 py-7">
         <div className="relative">
           <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Dashboard</span>
           <h1 className="text-[26px] font-medium text-foreground tracking-tight mt-1">
