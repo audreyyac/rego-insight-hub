@@ -1,11 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowUpRight, FileText, Activity, Plus, Upload, Loader2 } from "lucide-react";
-import SeverityBadge from "@/components/SeverityBadge";
-import { alerts } from "@/lib/mockData";
 import { useEffect, useRef, useState } from "react";
 import { supabase, PROFILE_DOCUMENTS_BUCKET, N8N_WEBHOOK_URL } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
-import { PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,12 +23,6 @@ import {
 
 type Device = { id: string; product_name: string };
 
-const COLORS = {
-  risk: "hsl(0, 74%, 59%)",
-  watch: "hsl(32, 78%, 41%)",
-  advantage: "hsl(159, 70%, 37%)",
-};
-
 const folderFor = (productName: string) =>
   productName.trim().replace(/[^\w\-. ]+/g, "_").replace(/\s+/g, "_").slice(0, 100) || "device";
 
@@ -39,6 +30,7 @@ const Index = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [deviceCount, setDeviceCount] = useState<number | null>(null);
+  const [reportCount, setReportCount] = useState<number | null>(null);
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadDevices, setUploadDevices] = useState<Device[]>([]);
@@ -56,6 +48,13 @@ const Index = () => {
         .from("client_profiles")
         .select("*", { count: "exact", head: true });
       setDeviceCount(count ?? 0);
+    })();
+    (async () => {
+      const { count } = await supabase
+        .from("reports")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "complete");
+      setReportCount(count ?? 0);
     })();
   }, []);
 
@@ -116,16 +115,6 @@ const Index = () => {
     }
   };
 
-  const riskCount = alerts.filter((a) => a.severity === "risk").length;
-  const watchCount = alerts.filter((a) => a.severity === "watch").length;
-  const advantageCount = alerts.filter((a) => a.severity === "advantage").length;
-
-  const pieData = [
-    { name: "Risks", value: riskCount, color: COLORS.risk },
-    { name: "Watch", value: watchCount, color: COLORS.watch },
-    { name: "Advantages", value: advantageCount, color: COLORS.advantage },
-  ].filter((d) => d.value > 0);
-
   return (
     <div className="space-y-8">
       <div className="pt-2">
@@ -137,7 +126,7 @@ const Index = () => {
         </p>
       </div>
 
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="surface-card p-5">
           <div className="flex items-center justify-between text-muted-foreground mb-3">
             <span className="text-[11px] uppercase tracking-wider">Active devices</span>
@@ -151,43 +140,14 @@ const Index = () => {
           </Link>
         </div>
 
-        <div className="surface-card p-5 flex flex-col items-center">
-          <div className="w-full flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] uppercase tracking-wider">Alert breakdown</span>
-            <Link to="/alerts" className="text-[12px] text-primary hover:underline inline-flex items-center gap-1">
-              View all <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          </div>
-          <PieChart width={180} height={100}>
-            <Pie
-              data={pieData}
-              cx={90}
-              cy={95}
-              startAngle={180}
-              endAngle={0}
-              innerRadius={55}
-              outerRadius={85}
-              dataKey="value"
-              strokeWidth={0}
-            >
-              {pieData.map((entry, i) => (
-                <Cell key={i} fill={entry.color} />
-              ))}
-            </Pie>
-          </PieChart>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="text-[12px] text-destructive">{riskCount} risk{riskCount !== 1 ? "s" : ""}</span>
-            <span className="text-[12px] text-warning">{watchCount} watch</span>
-            <span className="text-[12px] text-success">{advantageCount} adv</span>
-          </div>
-        </div>
-
         <div className="surface-card p-5">
           <div className="flex items-center justify-between text-muted-foreground mb-3">
             <span className="text-[11px] uppercase tracking-wider">Reports generated</span>
             <FileText className="h-4 w-4" />
           </div>
-          <div className="text-[28px] font-medium text-foreground tracking-tight">12</div>
+          <div className="text-[28px] font-medium text-foreground tracking-tight">
+            {reportCount === null ? "—" : reportCount}
+          </div>
           <span className="text-[12px] text-muted-foreground mt-2 inline-block">Across all devices</span>
         </div>
       </section>
@@ -222,32 +182,6 @@ const Index = () => {
             </div>
           </button>
         </div>
-      </section>
-
-      <section className="surface-card">
-        <div className="flex items-center justify-between px-5 py-4 border-b hairline">
-          <h2 className="text-[14px] text-foreground">Recent alerts</h2>
-          <Link to="/alerts" className="text-[12px] text-primary hover:underline inline-flex items-center gap-1">
-            View all <ArrowUpRight className="h-3 w-3" />
-          </Link>
-        </div>
-        <ul>
-          {alerts.slice(0, 4).map((a, i) => (
-            <li
-              key={a.id}
-              className={`px-5 py-4 flex items-start gap-4 ${i !== 0 ? "border-t hairline" : ""}`}
-            >
-              <SeverityBadge severity={a.severity} />
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] text-foreground truncate">{a.title}</p>
-                <p className="text-[12px] text-muted-foreground mt-0.5">
-                  {a.source} · {a.profile}
-                </p>
-              </div>
-              <span className="text-[12px] text-muted-foreground whitespace-nowrap">{a.date}</span>
-            </li>
-          ))}
-        </ul>
       </section>
 
       <Dialog open={uploadOpen} onOpenChange={(o) => !uploading && setUploadOpen(o)}>

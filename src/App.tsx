@@ -8,7 +8,6 @@ import AppLayout from "./components/layout/AppLayout";
 import Index from "./pages/Index";
 import Profiles from "./pages/Profiles";
 import ProfileDetail from "./pages/ProfileDetail";
-import Alerts from "./pages/Alerts";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -42,7 +41,6 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/profiles" element={<Profiles />} />
                 <Route path="/profiles/:id" element={<ProfileDetail />} />
-                <Route path="/alerts" element={<Alerts />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

@@ -6,7 +6,6 @@ import { useAuth } from "@/contexts/AuthContext";
 const links = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/profiles", label: "My Devices" },
-  { to: "/alerts", label: "Alerts" },
 ];
 
 const TopNav = () => {
