@@ -278,6 +278,8 @@ const ProfileDetail = () => {
   const [reports, setReports] = useState<Report[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [latestReport, setLatestReport] = useState<LatestReport | null>(null);
+  const [deleteReportTarget, setDeleteReportTarget] = useState<Report | null>(null);
+  const [deletingReport, setDeletingReport] = useState(false);
 
   const { user } = useAuth();
   const userId = user?.id ?? "";
@@ -616,6 +618,30 @@ const ProfileDetail = () => {
     await loadDocs();
   };
 
+  const confirmDeleteReport = async () => {
+    if (!deleteReportTarget) return;
+    setDeletingReport(true);
+    try {
+      const { error: storageErr } = await supabase.storage
+        .from(PROFILE_REPORTS_BUCKET)
+        .remove([deleteReportTarget.file_path]);
+      if (storageErr) throw storageErr;
+
+      await supabase
+        .from("reports")
+        .delete()
+        .eq("file_path", deleteReportTarget.file_path);
+
+      toast.success("Report deleted");
+      setDeleteReportTarget(null);
+      await Promise.all([loadReports(), loadLatestReport()]);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Couldn't delete report");
+    } finally {
+      setDeletingReport(false);
+    }
+  };
+
   const confirmDeleteDevice = async () => {
     if (!profile) return;
     setDeletingDevice(true);
@@ -892,13 +918,20 @@ const ProfileDetail = () => {
                       {r.file_size ? formatSize(r.file_size) : "—"}
                     </div>
                     <div className="col-span-3 text-[12px] text-muted-foreground">{formatDate(r.created_at)}</div>
-                    <div className="col-span-2 flex items-center justify-end">
+                    <div className="col-span-2 flex items-center justify-end gap-1">
                       <button
                         onClick={() => downloadBlob(r.public_url ?? "", r.file_name + ".pdf")}
                         className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                         aria-label="Download report"
                       >
                         <Download className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteReportTarget(r)}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        aria-label={`Delete ${r.file_name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </li>
@@ -982,6 +1015,40 @@ const ProfileDetail = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Deleting…
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!deleteReportTarget}
+        onOpenChange={(o) => !o && !deletingReport && setDeleteReportTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete report?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteReportTarget?.file_name} will be permanently removed from
+              storage. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingReport}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteReport();
+              }}
+              disabled={deletingReport}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingReport ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Deleting…
                 </>
