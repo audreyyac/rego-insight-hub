@@ -1,11 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowUpRight, FileText, Activity, Plus, Upload, Loader2 } from "lucide-react";
-import SeverityBadge from "@/components/SeverityBadge";
-import { alerts } from "@/lib/mockData";
 import { useEffect, useRef, useState } from "react";
 import { supabase, PROFILE_DOCUMENTS_BUCKET, N8N_WEBHOOK_URL } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
-import { PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,12 +23,6 @@ import {
 
 type Device = { id: string; product_name: string };
 
-const COLORS = {
-  risk: "hsl(0, 74%, 59%)",
-  watch: "hsl(32, 78%, 41%)",
-  advantage: "hsl(159, 70%, 37%)",
-};
-
 const folderFor = (productName: string) =>
   productName.trim().replace(/[^\w\-. ]+/g, "_").replace(/\s+/g, "_").slice(0, 100) || "device";
 
@@ -39,6 +30,7 @@ const Index = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [deviceCount, setDeviceCount] = useState<number | null>(null);
+  const [reportCount, setReportCount] = useState<number | null>(null);
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadDevices, setUploadDevices] = useState<Device[]>([]);
@@ -56,6 +48,13 @@ const Index = () => {
         .from("client_profiles")
         .select("*", { count: "exact", head: true });
       setDeviceCount(count ?? 0);
+    })();
+    (async () => {
+      const { count } = await supabase
+        .from("reports")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "complete");
+      setReportCount(count ?? 0);
     })();
   }, []);
 
@@ -115,16 +114,6 @@ const Index = () => {
       setUploading(false);
     }
   };
-
-  const riskCount = alerts.filter((a) => a.severity === "risk").length;
-  const watchCount = alerts.filter((a) => a.severity === "watch").length;
-  const advantageCount = alerts.filter((a) => a.severity === "advantage").length;
-
-  const pieData = [
-    { name: "Risks", value: riskCount, color: COLORS.risk },
-    { name: "Watch", value: watchCount, color: COLORS.watch },
-    { name: "Advantages", value: advantageCount, color: COLORS.advantage },
-  ].filter((d) => d.value > 0);
 
   return (
     <div className="space-y-8">
