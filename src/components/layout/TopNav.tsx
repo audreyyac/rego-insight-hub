@@ -13,11 +13,11 @@ const TopNav = () => {
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "??";
 
   return (
-    <header className="sticky top-0 z-40 h-[64px] bg-card border-b" style={{ borderBottomWidth: "0.5px" }}>
+    <header className="sticky top-0 z-40 h-[64px] bg-foreground text-background border-b border-foreground/20">
       <div className="mx-auto h-full max-w-[1200px] px-6 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5 group">
           <img src={logo} alt="Regosaurus" className="h-11 w-auto" />
-          <span className="text-[15px] tracking-tight text-foreground font-medium">
+          <span className="text-[15px] tracking-tight text-background font-medium">
             Regosaurus
           </span>
         </Link>
@@ -30,8 +30,8 @@ const TopNav = () => {
               className={({ isActive }) =>
                 `px-3 py-1.5 rounded-lg text-[13px] transition-colors ${
                   isActive
-                    ? "text-primary bg-secondary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                    ? "text-primary bg-background/10"
+                    : "text-background/70 hover:text-background hover:bg-background/10"
                 }`
               }
             >
@@ -40,13 +40,13 @@ const TopNav = () => {
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          <span className="text-[12px] text-muted-foreground hidden sm:block">{user?.email}</span>
-          <div className="h-7 w-7 rounded-full bg-secondary flex items-center justify-center text-[12px] font-medium text-foreground">
+          <span className="text-[12px] text-background/70 hidden sm:block">{user?.email}</span>
+          <div className="h-7 w-7 rounded-full bg-background/15 flex items-center justify-center text-[12px] font-medium text-background">
             {initials}
           </div>
           <button
             onClick={signOut}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+            className="p-1.5 rounded-md text-background/70 hover:text-background hover:bg-background/10 transition-colors"
             aria-label="Sign out"
           >
             <LogOut className="h-4 w-4" />
