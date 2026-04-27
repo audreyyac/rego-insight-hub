@@ -134,11 +134,6 @@ const Index = () => {
     return new Date(iso).toLocaleDateString();
   };
 
-  const reportsPerDevice =
-    deviceCount && reportCount !== null && deviceCount > 0
-      ? (reportCount / deviceCount).toFixed(1)
-      : "—";
-
   return (
     <div className="space-y-8">
       <div className="relative overflow-hidden rounded-2xl surface-card px-6 py-7">
@@ -161,7 +156,7 @@ const Index = () => {
         </div>
       </div>
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="surface-card p-5">
           <div className="flex items-center justify-between text-muted-foreground mb-3">
             <span className="text-[11px] uppercase tracking-wider">Active devices</span>
@@ -184,17 +179,6 @@ const Index = () => {
             {reportCount === null ? "—" : reportCount}
           </div>
           <span className="text-[12px] text-muted-foreground mt-2 inline-block">Across all devices</span>
-        </div>
-
-        <div className="surface-card p-5">
-          <div className="flex items-center justify-between text-muted-foreground mb-3">
-            <span className="text-[11px] uppercase tracking-wider">Reports / device</span>
-            <Cpu className="h-4 w-4" />
-          </div>
-          <div className="text-[28px] font-medium text-foreground tracking-tight">
-            {reportsPerDevice}
-          </div>
-          <span className="text-[12px] text-muted-foreground mt-2 inline-block">Average across portfolio</span>
         </div>
 
         <div className="surface-card p-5">
