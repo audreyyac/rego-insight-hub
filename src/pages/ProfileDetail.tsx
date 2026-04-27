@@ -158,9 +158,11 @@ const LatestReportSummary = ({ report }: { report: LatestReport }) => {
     day: "numeric",
     year: "numeric",
   });
+  const topFilings = (data.top_5 ?? []).slice(0, 3);
+  const topActions = (data.action_plan ?? []).slice(0, 3);
 
   return (
-    <div className="surface-card p-6 space-y-6">
+    <div className="surface-card p-5 space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -171,152 +173,77 @@ const LatestReportSummary = ({ report }: { report: LatestReport }) => {
               Latest
             </span>
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Report summary
+              Key insights
             </span>
           </div>
-          <h3 className="text-[16px] font-medium text-foreground">
-            {report.file_name}
-          </h3>
+          <div className="text-[12px] text-muted-foreground">
+            Generated {generatedAt}
+          </div>
         </div>
-        <span className="text-[12px] text-muted-foreground shrink-0">
-          {generatedAt}
-        </span>
       </div>
 
-      {data.overall_landscape_summary && (
-        <div>
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
-            Competitive landscape
-          </div>
-          <p className="text-[13px] leading-relaxed text-foreground">
-            {data.overall_landscape_summary}
-          </p>
-        </div>
-      )}
-
       {data.recommended_predicate && (
-        <div className="rounded-lg border hairline p-4 bg-secondary/30">
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">
             Recommended predicate
           </div>
-          <div className="text-[14px] font-medium text-foreground mb-1">
+          <div className="text-[14px] font-medium text-foreground">
             {data.recommended_predicate}
           </div>
           {data.recommended_predicate_rationale && (
-            <p className="text-[12px] leading-relaxed text-muted-foreground">
+            <p className="text-[12px] text-muted-foreground leading-snug mt-1 line-clamp-2">
               {data.recommended_predicate_rationale}
             </p>
           )}
         </div>
       )}
 
-      {Array.isArray(data.top_5) && data.top_5.length > 0 && (
+      {topFilings.length > 0 && (
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">
-            Top {data.top_5.length} similar filings
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+            Top similar filings
           </div>
-          <div className="space-y-3">
-            {data.top_5.map((f, i) => (
-              <div
+          <ul className="space-y-1.5">
+            {topFilings.map((f, i) => (
+              <li
                 key={`${f.k_number}-${i}`}
-                className="rounded-lg border hairline p-4"
+                className="flex items-center justify-between gap-3 px-3 py-2 rounded-md border hairline"
               >
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-medium text-foreground truncate">
-                      {i + 1}. {f.device_name}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">
-                      {f.submitter} · {f.k_number}
-                    </div>
+                <div className="min-w-0">
+                  <div className="text-[13px] text-foreground truncate">
+                    {f.device_name}
                   </div>
-                  <div className="text-right shrink-0">
-                    <div
-                      className="text-[20px] font-medium leading-none"
-                      style={{ color: scoreColor(f.similarity_score) }}
-                    >
-                      {f.similarity_score}%
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      similarity
-                    </div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {f.submitter} · {f.k_number}
                   </div>
                 </div>
-
-                {(f.what_is_similar?.length || f.what_is_different?.length) && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-                    {f.what_is_similar?.length > 0 && (
-                      <div className="rounded-md p-3" style={{ background: "rgba(29,158,117,0.08)" }}>
-                        <div className="text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: "#0F6E56" }}>
-                          Similar
-                        </div>
-                        <ul className="space-y-1">
-                          {f.what_is_similar.map((s, idx) => (
-                            <li key={idx} className="text-[12px] leading-snug text-foreground flex gap-1.5">
-                              <span style={{ color: "#1D9E75" }}>•</span>
-                              <span>{s}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {f.what_is_different?.length > 0 && (
-                      <div className="rounded-md p-3" style={{ background: "rgba(226,75,74,0.08)" }}>
-                        <div className="text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: "#A32D2D" }}>
-                          Different
-                        </div>
-                        <ul className="space-y-1">
-                          {f.what_is_different.map((d, idx) => (
-                            <li key={idx} className="text-[12px] leading-snug text-foreground flex gap-1.5">
-                              <span style={{ color: "#E24B4A" }}>•</span>
-                              <span>{d}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {f.competitive_implication && (
-                  <div className="text-[12px] leading-relaxed text-muted-foreground mt-2">
-                    <span className="font-medium text-foreground">Implication: </span>
-                    {f.competitive_implication}
-                  </div>
-                )}
-                {f.regulatory_insight && (
-                  <div className="text-[12px] leading-relaxed text-muted-foreground mt-1.5">
-                    <span className="font-medium" style={{ color: "#534AB7" }}>Regulatory: </span>
-                    {f.regulatory_insight}
-                  </div>
-                )}
-                {f.predicate_chain && (
-                  <div className="text-[12px] leading-relaxed text-muted-foreground mt-1.5">
-                    <span className="font-medium text-foreground">Predicate chain: </span>
-                    {f.predicate_chain}
-                  </div>
-                )}
-              </div>
+                <div
+                  className="text-[14px] font-medium shrink-0"
+                  style={{ color: scoreColor(f.similarity_score) }}
+                >
+                  {f.similarity_score}%
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
 
-      {Array.isArray(data.action_plan) && data.action_plan.length > 0 && (
+      {topActions.length > 0 && (
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">
-            Action plan
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+            Top next steps
           </div>
-          <ol className="space-y-2">
-            {data.action_plan.map((step, i) => (
-              <li key={i} className="flex gap-3 items-start">
+          <ol className="space-y-1.5">
+            {topActions.map((step, i) => (
+              <li key={i} className="flex gap-2 items-start">
                 <span
-                  className="shrink-0 w-6 h-6 rounded-full text-[11px] font-medium flex items-center justify-center"
+                  className="shrink-0 w-5 h-5 rounded-full text-[10px] font-medium flex items-center justify-center"
                   style={{ background: "rgba(255,145,0,0.12)", color: "#FF9100" }}
                 >
                   {i + 1}
                 </span>
-                <span className="text-[13px] leading-relaxed text-foreground pt-0.5">
+                <span className="text-[12px] leading-relaxed text-foreground pt-0.5 line-clamp-2">
                   {step.replace(/^\d+\.\s*/, "")}
                 </span>
               </li>
@@ -324,53 +251,6 @@ const LatestReportSummary = ({ report }: { report: LatestReport }) => {
           </ol>
         </div>
       )}
-
-      {Array.isArray(data.standards_checklist) && data.standards_checklist.length > 0 && (() => {
-        const recommendedRe = /recommended based on competitor filings/i;
-        const cited = data.standards_checklist.filter((s) => !recommendedRe.test(s));
-        const recommended = data.standards_checklist.filter((s) => recommendedRe.test(s));
-        const stripRecommendedSuffix = (s: string) =>
-          s.replace(/\s*[—-]?\s*Recommended based on competitor filings.*$/i, "")
-            .replace(/\(Recommended based on competitor filings.*?\)/i, "")
-            .trim();
-        return (
-          <div>
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">
-              Standards checklist
-            </div>
-            {cited.length > 0 && (
-              <div className="mb-3">
-                <div className="text-[11px] font-medium text-foreground mb-2">Cited in client filing</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {cited.map((s, i) => (
-                    <div key={i} className="rounded-md border hairline px-3 py-2 bg-secondary/30 text-[12px] text-foreground">
-                      {s}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {recommended.length > 0 && (
-              <div>
-                <div className="text-[11px] font-medium mb-2" style={{ color: "#BA7517" }}>
-                  Recommended based on competitor filings
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {recommended.map((s, i) => (
-                    <div
-                      key={i}
-                      className="rounded-md px-3 py-2 text-[12px]"
-                      style={{ background: "#FAEEDA", color: "#633806", border: "1px solid #BA7517" }}
-                    >
-                      {stripRecommendedSuffix(s)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
     </div>
   );
 };
